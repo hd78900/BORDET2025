@@ -1,4 +1,9 @@
 (function() {
+  // Vérifier si nous sommes dans un navigateur
+  if (typeof window === 'undefined') {
+    return;
+  }
+
   // Vérifier si le widget est déjà chargé
   if (window.BordetWidgetLoaded) {
     return;
@@ -11,7 +16,7 @@
     containerId: 'bordet-assistant-widget'
   };
 
-  // Fonction pour créer l'iframe du widget (méthode principale)
+  // Fonction pour créer l'iframe du widget
   function createWidgetIframe() {
     // Supprimer le widget existant s'il y en a un
     const existingWidget = document.getElementById(WIDGET_CONFIG.containerId);
@@ -62,6 +67,7 @@
           text-align: center;
           color: #374151;
           font-size: 14px;
+          pointer-events: auto;
         ">
           <p>Widget temporairement indisponible</p>
           <p style="font-size: 12px; margin-top: 10px;">
