@@ -77,15 +77,7 @@ function App() {
         <Route 
           path="/widget/:botId" 
           element={
-            <div style={{ 
-              position: 'fixed', 
-              bottom: '20px', 
-              right: '20px', 
-              zIndex: 999999,
-              fontFamily: 'system-ui, -apple-system, sans-serif'
-            }}>
-              <Widget />
-            </div>
+            <Widget />
           } 
         />
         <Route

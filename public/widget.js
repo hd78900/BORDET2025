@@ -11,19 +11,14 @@
     containerId: 'bordet-assistant-widget'
   };
 
-  // Fonction pour charger les styles
-  function loadStyles() {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = WIDGET_CONFIG.baseUrl + '/assets/index-MfRSMsMv.css';
-    link.onerror = function() {
-      console.warn('Bordet Widget: Could not load styles');
-    };
-    document.head.appendChild(link);
-  }
-
-  // Fonction pour créer l'iframe du widget
+  // Fonction pour créer l'iframe du widget (méthode principale)
   function createWidgetIframe() {
+    // Supprimer le widget existant s'il y en a un
+    const existingWidget = document.getElementById(WIDGET_CONFIG.containerId);
+    if (existingWidget) {
+      existingWidget.remove();
+    }
+
     const container = document.createElement('div');
     container.id = WIDGET_CONFIG.containerId;
     container.style.cssText = `
@@ -36,6 +31,7 @@
       border: none !important;
       background: transparent !important;
       pointer-events: none !important;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
     `;
 
     const iframe = document.createElement('iframe');
@@ -46,48 +42,56 @@
       border: none !important;
       background: transparent !important;
       pointer-events: auto !important;
+      border-radius: 12px !important;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
     `;
     iframe.setAttribute('allowtransparency', 'true');
     iframe.setAttribute('frameborder', '0');
+    iframe.setAttribute('scrolling', 'no');
+    iframe.setAttribute('allow', 'clipboard-write');
+
+    // Gestion des erreurs de chargement de l'iframe
+    iframe.onerror = function() {
+      console.error('Bordet Widget: Failed to load iframe');
+      container.innerHTML = `
+        <div style="
+          background: #f3f4f6;
+          border: 1px solid #d1d5db;
+          border-radius: 12px;
+          padding: 20px;
+          text-align: center;
+          color: #374151;
+          font-size: 14px;
+        ">
+          <p>Widget temporairement indisponible</p>
+          <p style="font-size: 12px; margin-top: 10px;">
+            <a href="${WIDGET_CONFIG.baseUrl}" target="_blank" style="color: #3b82f6;">
+              Ouvrir dans un nouvel onglet
+            </a>
+          </p>
+        </div>
+      `;
+    };
 
     container.appendChild(iframe);
     document.body.appendChild(container);
-  }
 
-  // Fonction pour charger le script React
-  function loadReactScript() {
-    const script = document.createElement('script');
-    script.src = WIDGET_CONFIG.baseUrl + '/assets/index-BA265XoQ.js';
-    script.async = true;
-    script.type = 'module';
-    
-    script.onload = function() {
-      console.log('Bordet Widget: Script loaded successfully');
-      // Créer l'iframe comme fallback si le script React ne fonctionne pas
-      setTimeout(createWidgetIframe, 1000);
-    };
-    
-    script.onerror = function() {
-      console.warn('Bordet Widget: Could not load React script, using iframe fallback');
-      createWidgetIframe();
-    };
-    
-    document.head.appendChild(script);
+    console.log('Bordet Widget: Iframe widget loaded successfully');
   }
 
   // Attendre que le DOM soit prêt
   function init() {
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function() {
-        loadStyles();
-        loadReactScript();
-      });
+      document.addEventListener('DOMContentLoaded', createWidgetIframe);
     } else {
-      loadStyles();
-      loadReactScript();
+      createWidgetIframe();
     }
   }
 
   // Initialiser le widget
-  init();
+  try {
+    init();
+  } catch (error) {
+    console.error('Bordet Widget: Initialization failed', error);
+  }
 })();
