@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MessageSquare, X, Minimize2, Maximize2 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { chatbots } from '../config/chatbots';
+import ChatInterface from './ChatInterface';
 
 export default function Widget() {
   const [isOpen, setIsOpen] = useState(false);
