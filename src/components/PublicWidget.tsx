@@ -159,7 +159,7 @@ export default function PublicWidget() {
           {/* Bouton de masquage direct */}
           <button
             onClick={handleDirectHide}
-            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black bg-opacity-70 text-white p-2 rounded-full hover:bg-opacity-90 z-10"
+            className="absolute top-2 right-2 bg-black bg-opacity-70 text-white p-2 rounded-full hover:bg-opacity-90 z-10"
             title="Masquer l'assistant"
           >
             <EyeOff className="h-5 w-5" />
