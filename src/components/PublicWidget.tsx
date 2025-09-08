@@ -150,27 +150,36 @@ export default function PublicWidget() {
   return (
     <div className="fixed bottom-4 right-4 z-50">
       {!isOpen ? (
-        <button
-          onClick={toggleWidget}
-          className="hover:opacity-90 transition-opacity duration-300"
-          style={{
-            width: '259px',
-            height: '247px',
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            cursor: 'pointer'
-          }}
-        >
-          <img 
-            src="https://i.postimg.cc/Y050gXtV/Raymond-bouton.png"
-            alt="Assistant Bordet"
-            className="w-full h-full object-contain"
+        <div className="group relative">
+          <button
+            onClick={toggleWidget}
+            className="hover:opacity-90 transition-opacity duration-300"
             style={{
-              filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))'
+              width: '259px',
+              height: '247px',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer'
             }}
-          />
-        </button>
+          >
+            <img 
+              src="https://i.postimg.cc/Y050gXtV/Raymond-bouton.png"
+              alt="Assistant Bordet"
+              className="w-full h-full object-contain"
+              style={{
+                filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))'
+              }}
+            />
+          </button>
+          {/* Indicateur de masquage */}
+          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <div className="bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+              <EyeOff className="h-3 w-3" />
+              <span>Masquer</span>
+            </div>
+          </div>
+        </div>
       ) : (
         <div
           className={`bg-white rounded-lg shadow-xl transition-all duration-300 ${

@@ -156,10 +156,10 @@ export default function Widget() {
   return (
     <div className="w-full h-full" style={{ pointerEvents: 'auto' }}>
       {!isOpen ? (
-        <div className="fixed bottom-4 right-4" style={{ pointerEvents: 'auto' }}>
+        <div className="fixed bottom-4 right-4 group" style={{ pointerEvents: 'auto' }}>
           <button
             onClick={toggleWidget}
-            className="hover:opacity-90 transition-opacity duration-300 block"
+            className="hover:opacity-90 transition-opacity duration-300 block relative"
             style={{
               width: '260px',
               height: '248px',
@@ -179,6 +179,13 @@ export default function Widget() {
               }}
             />
           </button>
+          {/* Indicateur de masquage */}
+          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <div className="bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+              <EyeOff className="h-3 w-3" />
+              <span>Masquer</span>
+            </div>
+          </div>
         </div>
       ) : (
         <div
