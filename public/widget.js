@@ -31,11 +31,11 @@
       bottom: 20px !important;
       right: 20px !important;
       z-index: 999999 !important;
-      width: 400px !important;
-      height: 600px !important;
+      width: 259px !important;
+      height: 247px !important;
       border: none !important;
       background: transparent !important;
-      pointer-events: none !important;
+      pointer-events: auto !important;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
       box-shadow: none !important;
       outline: none !important;
@@ -48,7 +48,6 @@
       height: 100% !important;
       border: none !important;
       background: transparent !important;
-      pointer-events: auto !important;
       border-radius: 0 !important;
       box-shadow: none !important;
       outline: none !important;

@@ -118,24 +118,26 @@ export default function Widget() {
 
   return (
     <div 
-      className="fixed bottom-4 right-4 z-50"
+      className={`fixed bottom-4 right-4 z-50 ${!isOpen ? 'w-64 h-62' : 'w-96 h-[600px]'}`}
       style={{
         fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         fontSize: '14px',
-        lineHeight: '1.5'
+        lineHeight: '1.5',
+        pointerEvents: 'auto'
       }}
     >
       {!isOpen ? (
         <button
           onClick={toggleWidget}
-          className="hover:opacity-90 transition-opacity duration-300"
+          className="hover:opacity-90 transition-opacity duration-300 block"
           style={{
             width: '259px',
             height: '247px',
             background: 'none',
             border: 'none',
             padding: 0,
-            cursor: 'pointer'
+            cursor: 'pointer',
+            pointerEvents: 'auto'
           }}
         >
           <img 
@@ -153,7 +155,7 @@ export default function Widget() {
             isMinimized ? 'w-auto h-auto' : 'w-96 h-[600px]'
           }`}
           style={{
-            boxShadow: isOpen ? '0 10px 25px rgba(0, 0, 0, 0.15)' : 'none'
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)'
           }}
         >
           <div className="flex items-center justify-between p-4 border-b">
