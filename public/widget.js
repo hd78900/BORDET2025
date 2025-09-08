@@ -30,7 +30,7 @@
       position: fixed !important;
       bottom: 20px !important;
       right: 20px !important;
-      z-index: 999999 !important;
+      z-index: 9999 !important;
       width: 280px !important;
       height: 270px !important;
       border: none !important;
@@ -57,7 +57,6 @@
     iframe.setAttribute('allowtransparency', 'true');
     iframe.setAttribute('frameborder', '0');
     iframe.setAttribute('scrolling', 'no');
-    iframe.setAttribute('allow', 'clipboard-write');
 
     // Écouter les messages de l'iframe pour redimensionner le container
     window.addEventListener('message', function(event) {
