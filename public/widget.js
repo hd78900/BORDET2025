@@ -80,7 +80,7 @@
     iframe.setAttribute('allowtransparency', 'true');
     iframe.setAttribute('frameborder', '0');
     iframe.setAttribute('scrolling', 'no');
-    iframe.setAttribute('sandbox', 'allow-scripts allow-forms');
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
 
     // Écouter les messages de l'iframe pour redimensionner le container
     const messageHandler = function(event) {
@@ -90,42 +90,10 @@
         return;
       }
       
-      // Validation des données du message
-      if (!event.data || typeof event.data !== 'object') {
-        console.warn('Bordet Widget: Invalid message data format');
-        return;
-      }
-      
       if (event.data.type === 'WIDGET_RESIZE') {
         const { width, height } = event.data;
-        
-        // Validation stricte des dimensions
-        if (typeof width !== 'number' || typeof height !== 'number' || 
-            !Number.isFinite(width) || !Number.isFinite(height) ||
-            width < 0 || height < 0) {
-          console.warn('Bordet Widget: Invalid resize dimensions');
-          return;
-        }
-        
-        // Limites de sécurité strictes pour les dimensions
-        const maxWidth = Math.min(window.innerWidth, 500);
-        const maxHeight = Math.min(window.innerHeight, 700);
-        const minWidth = 200;
-        const minHeight = 100;
-        
-        // Arrondir et sécuriser les valeurs
-        const safeWidth = Math.max(minWidth, Math.min(maxWidth, Math.floor(width)));
-        const safeHeight = Math.max(minHeight, Math.min(maxHeight, Math.floor(height)));
-        
-        // Validation finale des valeurs CSS
-        if (safeWidth <= 0 || safeHeight <= 0 || 
-            safeWidth > 2000 || safeHeight > 2000) {
-          console.warn('Bordet Widget: Dimensions out of safe range');
-          return;
-        }
-        
-        container.style.width = safeWidth + 'px';
-        container.style.height = safeHeight + 'px';
+        container.style.width = width + 'px';
+        container.style.height = height + 'px';
       }
       
       if (event.data.type === 'WIDGET_HIDDEN') {
