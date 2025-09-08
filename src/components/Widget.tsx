@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, X, Minimize2, Maximize2, Copy, Check } from 'lucide-react';
+import { Send, X, Minimize2, Maximize2, Copy, Check, EyeOff } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { getChatResponse } from '../lib/api';
@@ -9,6 +9,7 @@ import { chatbots } from '../config/chatbots';
 export default function Widget() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isHidden, setIsHidden] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,6 +19,9 @@ export default function Widget() {
   const currentBot = chatbots.find(bot => bot.id === botId);
 
   if (!currentBot) return null;
+
+  // Si le widget est masqué, ne rien afficher
+  if (isHidden) return null;
 
   // Fonction pour notifier le parent du changement de taille
   const notifyResize = (width: number, height: number) => {
@@ -40,6 +44,7 @@ export default function Widget() {
       notifyResize(450, 650); // Taille complète avec plus de marge
     }
   }, [isOpen, isMinimized]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || loading) return;
@@ -99,6 +104,17 @@ export default function Widget() {
   const toggleMinimize = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsMinimized(!isMinimized);
+  };
+
+  const handleHideWidget = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsHidden(true);
+    // Notifier le parent que le widget est masqué
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({
+        type: 'WIDGET_HIDDEN'
+      }, '*');
+    }
   };
 
   // Composants personnalisés pour ReactMarkdown
@@ -190,12 +206,21 @@ export default function Widget() {
               <button
                 onClick={toggleMinimize}
                 className="p-1 hover:bg-gray-100 rounded"
+                title={isMinimized ? "Agrandir" : "Réduire"}
               >
                 {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
               </button>
               <button
+                onClick={handleHideWidget}
+                className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700"
+                title="Masquer le widget"
+              >
+                <EyeOff className="h-4 w-4" />
+              </button>
+              <button
                 onClick={() => setIsOpen(false)}
                 className="p-1 hover:bg-gray-100 rounded"
+                title="Fermer"
               >
                 <X className="h-4 w-4" />
               </button>

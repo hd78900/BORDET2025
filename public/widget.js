@@ -68,6 +68,10 @@
         container.style.width = width + 'px';
         container.style.height = height + 'px';
       }
+      
+      if (event.data.type === 'WIDGET_HIDDEN') {
+        container.style.display = 'none';
+      }
     });
 
     // Gestion des erreurs de chargement de l'iframe

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, X, Minimize2, Maximize2, Copy, Check } from 'lucide-react';
+import { Send, X, Minimize2, Maximize2, Copy, Check, EyeOff } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { getChatResponse } from '../lib/api';
 import { ChatMessage } from '../types';
@@ -18,12 +18,16 @@ export default function PublicWidget() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isHidden, setIsHidden] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
   if (!widgetEnabled) return null;
+  
+  // Si le widget est masqué, ne rien afficher
+  if (isHidden) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,6 +88,11 @@ export default function PublicWidget() {
   const toggleMinimize = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsMinimized(!isMinimized);
+  };
+
+  const handleHideWidget = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsHidden(true);
   };
 
   // Composants personnalisés pour ReactMarkdown
@@ -181,12 +190,21 @@ export default function PublicWidget() {
               <button
                 onClick={toggleMinimize}
                 className="p-1 hover:bg-gray-100 rounded"
+                title={isMinimized ? "Agrandir" : "Réduire"}
               >
                 {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
               </button>
               <button
+                onClick={handleHideWidget}
+                className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700"
+                title="Masquer le widget"
+              >
+                <EyeOff className="h-4 w-4" />
+              </button>
+              <button
                 onClick={() => setIsOpen(false)}
                 className="p-1 hover:bg-gray-100 rounded"
+                title="Fermer"
               >
                 <X className="h-4 w-4" />
               </button>
