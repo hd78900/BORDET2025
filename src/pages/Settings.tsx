@@ -359,7 +359,14 @@ export default function Settings() {
                   {showPreview && (
                     <div className="mt-6 p-6 bg-gray-50 rounded-lg">
                       <h5 className="text-sm font-medium text-gray-700 mb-4">Prévisualisation du widget</h5>
-                      <PublicWidget />
+                      <div className="relative">
+                        <PublicWidget />
+                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-sm text-blue-800">
+                            <strong>Nouvelle fonctionnalité :</strong> Le bouton "Masquer" (👁️) permet aux visiteurs de faire disparaître complètement le widget, particulièrement utile sur mobile.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
