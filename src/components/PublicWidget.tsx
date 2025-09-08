@@ -209,13 +209,15 @@ export default function PublicWidget() {
               >
                 {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
               </button>
-              <button
-                onClick={handleHideWidget}
-                className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700"
-                title="Masquer l'assistant"
-              >
-                <EyeOff className="h-5 w-5" />
-              </button>
+              {!isMinimized && (
+                <button
+                  onClick={handleHideWidget}
+                  className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700"
+                  title="Masquer l'assistant"
+                >
+                  <EyeOff className="h-5 w-5" />
+                </button>
+              )}
               <button
                 onClick={() => setIsOpen(false)}
                 className="p-1 hover:bg-gray-100 rounded"
