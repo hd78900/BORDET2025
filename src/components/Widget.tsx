@@ -117,9 +117,9 @@ export default function Widget() {
   };
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full" style={{ pointerEvents: 'auto' }}>
       {!isOpen ? (
-        <div className="fixed bottom-4 right-4">
+        <div className="fixed bottom-4 right-4" style={{ pointerEvents: 'auto' }}>
           <button
             onClick={toggleWidget}
             className="hover:opacity-90 transition-opacity duration-300 block"
@@ -152,7 +152,8 @@ export default function Widget() {
             boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
             fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             fontSize: '14px',
-            lineHeight: '1.5'
+            lineHeight: '1.5',
+            pointerEvents: 'auto'
           }}
         >
           <div className="flex items-center justify-between p-4 border-b">
