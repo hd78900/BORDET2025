@@ -168,6 +168,14 @@ export default function Widget() {
     <div className="w-full h-full" style={{ pointerEvents: 'auto' }}>
       {!isOpen ? (
         <div className="fixed bottom-4 right-4 group" style={{ pointerEvents: 'auto' }}>
+          {/* Bouton de masquage direct */}
+          <button
+            onClick={handleDirectHide}
+            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black bg-opacity-70 text-white p-2 rounded-full hover:bg-opacity-90 z-10"
+            title="Masquer l'assistant"
+          >
+            <EyeOff className="h-5 w-5" />
+          </button>
           <button
             onClick={toggleWidget}
             className="hover:opacity-90 transition-opacity duration-300 block relative"
@@ -189,14 +197,6 @@ export default function Widget() {
                 filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))'
               }}
             />
-          </button>
-          {/* Bouton de masquage direct */}
-          <button
-            onClick={handleDirectHide}
-            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black bg-opacity-70 text-white p-2 rounded-full hover:bg-opacity-90"
-            title="Masquer l'assistant"
-          >
-            <EyeOff className="h-5 w-5" />
           </button>
         </div>
       ) : (
