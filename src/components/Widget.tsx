@@ -35,9 +35,9 @@ export default function Widget() {
     if (!isOpen) {
       notifyResize(259, 247); // Taille du bouton Raymond
     } else if (isMinimized) {
-      notifyResize(320, 70); // Taille minimisée
+      notifyResize(350, 80); // Taille minimisée
     } else {
-      notifyResize(420, 620); // Taille complète avec marge
+      notifyResize(450, 650); // Taille complète avec plus de marge
     }
   }, [isOpen, isMinimized]);
   const handleSubmit = async (e: React.FormEvent) => {
@@ -167,7 +167,7 @@ export default function Widget() {
       ) : (
         <div
           className={`fixed bottom-4 right-4 bg-white rounded-lg shadow-xl transition-all duration-300 ${
-            isMinimized ? 'w-auto h-auto' : 'w-[400px] h-[600px]'
+            isMinimized ? 'w-auto h-auto' : 'w-[420px] h-[620px]'
           }`}
           style={{
             boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
