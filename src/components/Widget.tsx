@@ -33,7 +33,7 @@ export default function Widget() {
   // Notifier la taille quand l'état change
   React.useEffect(() => {
     if (!isOpen) {
-      notifyResize(259, 247); // Taille du bouton Raymond
+      notifyResize(280, 270); // Taille du bouton Raymond avec marge
     } else if (isMinimized) {
       notifyResize(350, 80); // Taille minimisée
     } else {
@@ -145,8 +145,8 @@ export default function Widget() {
             onClick={toggleWidget}
             className="hover:opacity-90 transition-opacity duration-300 block"
             style={{
-              width: '259px',
-              height: '247px',
+              width: '260px',
+              height: '248px',
               background: 'none',
               border: 'none',
               padding: 0,

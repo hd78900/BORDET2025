@@ -31,8 +31,8 @@
       bottom: 20px !important;
       right: 20px !important;
       z-index: 999999 !important;
-      width: 259px !important;
-      height: 247px !important;
+      width: 280px !important;
+      height: 270px !important;
       border: none !important;
       background: transparent !important;
       pointer-events: auto !important;
