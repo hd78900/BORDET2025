@@ -152,6 +152,9 @@ export default function Widget() {
           className={`bg-white rounded-lg shadow-xl transition-all duration-300 ${
             isMinimized ? 'w-auto h-auto' : 'w-96 h-[600px]'
           }`}
+          style={{
+            boxShadow: isOpen ? '0 10px 25px rgba(0, 0, 0, 0.15)' : 'none'
+          }}
         >
           <div className="flex items-center justify-between p-4 border-b">
             <div className="flex items-center gap-3">
