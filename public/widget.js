@@ -31,14 +31,15 @@
       bottom: 20px !important;
       right: 20px !important;
       z-index: 999999 !important;
-      width: 400px !important;
-      height: 600px !important;
+      width: 259px !important;
+      height: 247px !important;
       border: none !important;
       background: transparent !important;
-      pointer-events: none !important;
+      pointer-events: auto !important;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
       box-shadow: none !important;
       outline: none !important;
+      transition: width 0.3s ease, height 0.3s ease !important;
     `;
 
     const iframe = document.createElement('iframe');
@@ -57,6 +58,17 @@
     iframe.setAttribute('frameborder', '0');
     iframe.setAttribute('scrolling', 'no');
     iframe.setAttribute('allow', 'clipboard-write');
+
+    // Écouter les messages de l'iframe pour redimensionner le container
+    window.addEventListener('message', function(event) {
+      if (event.origin !== WIDGET_CONFIG.baseUrl) return;
+      
+      if (event.data.type === 'WIDGET_RESIZE') {
+        const { width, height } = event.data;
+        container.style.width = width + 'px';
+        container.style.height = height + 'px';
+      }
+    });
 
     // Gestion des erreurs de chargement de l'iframe
     iframe.onerror = function() {

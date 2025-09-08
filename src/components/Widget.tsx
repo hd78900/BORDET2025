@@ -19,6 +19,27 @@ export default function Widget() {
 
   if (!currentBot) return null;
 
+  // Fonction pour notifier le parent du changement de taille
+  const notifyResize = (width: number, height: number) => {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({
+        type: 'WIDGET_RESIZE',
+        width,
+        height
+      }, '*');
+    }
+  };
+
+  // Notifier la taille quand l'état change
+  React.useEffect(() => {
+    if (!isOpen) {
+      notifyResize(259, 247); // Taille du bouton Raymond
+    } else if (isMinimized) {
+      notifyResize(300, 60); // Taille minimisée
+    } else {
+      notifyResize(384, 600); // Taille complète
+    }
+  }, [isOpen, isMinimized]);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || loading) return;
