@@ -369,9 +369,11 @@ export default function Settings() {
                             <li>• <strong>Bouton de masquage toujours visible</strong> : Accessible en permanence, sans survol nécessaire</li>
                             <li>• <strong>Masquage depuis l'assistant ouvert</strong> : Bouton dans la barre de titre</li>
                             <li>• <strong>Particulièrement utile sur mobile</strong> pour libérer l'espace de navigation</li>
+                            <li>• <strong>Bulle de bienvenue automatique</strong> : Guide l'utilisateur dès l'ouverture</li>
+                            <li>• <strong>Sécurité renforcée</strong> : Protection contre les attaques et namespace isolé</li>
                           </ul>
                           <p className="text-sm text-blue-800 mt-2">
-                            <em>Le bouton de masquage est toujours visible sur le bouton Raymond, parfait pour une clientèle senior.</em>
+                            <em>Interface optimisée pour une clientèle senior avec sécurité enterprise-grade.</em>
                           </p>
                         </div>
                       </div>
