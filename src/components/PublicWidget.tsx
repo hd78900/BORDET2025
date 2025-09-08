@@ -18,7 +18,19 @@ export default function PublicWidget() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      role: 'assistant',
+      content: `Je suis votre assistant technique personnel, prêt à vous accompagner dans vos projets. Que vous soyez débutant ou expert, tournage, sculpture, ébénisterie ou menuiserie, je vous aide à trouver les bons outils.
+
+Dites-moi simplement :
+
+- Sur quel projet travaillez-vous ?
+- Quel outil recherchez-vous ?
+- Quelle technique souhaitez-vous maîtriser ?`,
+      timestamp: Date.now()
+    }
+  ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
