@@ -117,45 +117,42 @@ export default function Widget() {
   };
 
   return (
-    <div 
-      className={`fixed bottom-4 right-4 z-50 ${!isOpen ? 'w-64 h-62' : 'w-96 h-[600px]'}`}
-      style={{
-        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        fontSize: '14px',
-        lineHeight: '1.5',
-        pointerEvents: 'auto'
-      }}
-    >
+    <div className="w-full h-full">
       {!isOpen ? (
-        <button
-          onClick={toggleWidget}
-          className="hover:opacity-90 transition-opacity duration-300 block"
-          style={{
-            width: '259px',
-            height: '247px',
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            cursor: 'pointer',
-            pointerEvents: 'auto'
-          }}
-        >
-          <img 
-            src="https://i.postimg.cc/Y050gXtV/Raymond-bouton.png"
-            alt="Assistant Bordet"
-            className="w-full h-full object-contain"
+        <div className="fixed bottom-4 right-4">
+          <button
+            onClick={toggleWidget}
+            className="hover:opacity-90 transition-opacity duration-300 block"
             style={{
-              filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))'
+              width: '259px',
+              height: '247px',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              pointerEvents: 'auto'
             }}
-          />
-        </button>
+          >
+            <img 
+              src="https://i.postimg.cc/Y050gXtV/Raymond-bouton.png"
+              alt="Assistant Bordet"
+              className="w-full h-full object-contain"
+              style={{
+                filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))'
+              }}
+            />
+          </button>
+        </div>
       ) : (
         <div
-          className={`bg-white rounded-lg shadow-xl transition-all duration-300 ${
+          className={`fixed bottom-4 right-4 bg-white rounded-lg shadow-xl transition-all duration-300 ${
             isMinimized ? 'w-auto h-auto' : 'w-96 h-[600px]'
           }`}
           style={{
-            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)'
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+            fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            fontSize: '14px',
+            lineHeight: '1.5'
           }}
         >
           <div className="flex items-center justify-between p-4 border-b">
