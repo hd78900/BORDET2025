@@ -181,9 +181,9 @@ export default function PublicWidget() {
           <button
             onClick={handleDirectHide}
             className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black bg-opacity-70 text-white p-2 rounded-full hover:bg-opacity-90"
-            title="Masquer le widget"
+            title="Masquer l'assistant"
           >
-            <EyeOff className="h-4 w-4" />
+            <EyeOff className="h-5 w-5" />
           </button>
         </div>
       ) : (
@@ -212,9 +212,9 @@ export default function PublicWidget() {
               <button
                 onClick={handleHideWidget}
                 className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700"
-                title="Masquer le widget"
+                title="Masquer l'assistant"
               >
-                <EyeOff className="h-4 w-4" />
+                <EyeOff className="h-5 w-5" />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
