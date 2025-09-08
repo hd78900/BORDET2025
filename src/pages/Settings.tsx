@@ -366,12 +366,12 @@ export default function Settings() {
                             <strong>Nouvelles fonctionnalités :</strong>
                           </p>
                           <ul className="text-sm text-blue-800 mt-2 space-y-1">
-                            <li>• <strong>Masquage direct</strong> : Bouton qui apparaît au survol du bouton Raymond</li>
+                            <li>• <strong>Masquage toujours accessible</strong> : Bouton présent en permanence sur le bouton Raymond</li>
                             <li>• <strong>Masquage depuis l'assistant ouvert</strong> : Bouton dans la barre de titre</li>
                             <li>• <strong>Particulièrement utile sur mobile</strong> pour libérer l'espace de navigation</li>
                           </ul>
                           <p className="text-sm text-blue-800 mt-2">
-                            <em>Survolez le bouton Raymond pour voir le bouton de masquage direct.</em>
+                            <em>Le bouton de masquage apparaît au survol du bouton Raymond et reste toujours accessible.</em>
                           </p>
                         </div>
                       </div>
