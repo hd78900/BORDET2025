@@ -117,6 +117,17 @@ export default function Widget() {
     }
   };
 
+  const handleDirectHide = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsHidden(true);
+    // Notifier le parent que le widget est masqué
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({
+        type: 'WIDGET_HIDDEN'
+      }, '*');
+    }
+  };
+
   // Composants personnalisés pour ReactMarkdown
   const components = {
     h1: ({ node, ...props }) => <h1 {...props} className="text-xl font-bold mt-4 mb-3" />,
@@ -179,13 +190,14 @@ export default function Widget() {
               }}
             />
           </button>
-          {/* Indicateur de masquage */}
-          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <div className="bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
-              <EyeOff className="h-3 w-3" />
-              <span>Masquer</span>
-            </div>
-          </div>
+          {/* Bouton de masquage direct */}
+          <button
+            onClick={handleDirectHide}
+            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black bg-opacity-70 text-white p-2 rounded-full hover:bg-opacity-90"
+            title="Masquer le widget"
+          >
+            <EyeOff className="h-4 w-4" />
+          </button>
         </div>
       ) : (
         <div
