@@ -230,8 +230,15 @@ export default function PublicWidget() {
               <div className="flex-1 overflow-y-auto p-4 space-y-8">
                 {messages.length === 0 && (
                   <div className="text-center text-gray-500 mt-8">
-                    <p className="text-lg font-medium mb-4">{widgetWelcomeMessage}</p>
-                    <p className="text-sm">Posez votre question pour commencer la conversation.</p>
+                    <div className="text-left max-w-md mx-auto">
+                      <p className="text-base font-medium mb-4 text-gray-700">Je suis votre assistant technique personnel, prêt à vous accompagner dans vos projets. Que vous soyez débutant ou expert, tournage, sculpture, ébénisterie ou menuiserie, je vous aide à trouver les bons outils.</p>
+                      <p className="text-sm font-medium mb-2 text-gray-600">Dites-moi simplement :</p>
+                      <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
+                        <li>Sur quel projet travaillez-vous ?</li>
+                        <li>Quel outil recherchez-vous ?</li>
+                        <li>Quelle technique souhaitez-vous maîtriser ?</li>
+                      </ul>
+                    </div>
                   </div>
                 )}
                 {messages.map((message, index) => (
