@@ -363,7 +363,15 @@ export default function Settings() {
                         <PublicWidget />
                         <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                           <p className="text-sm text-blue-800">
-                            <strong>Nouvelle fonctionnalité :</strong> Le bouton "Masquer" (👁️) permet aux visiteurs de faire disparaître complètement le widget, particulièrement utile sur mobile.
+                            <strong>Nouvelles fonctionnalités :</strong>
+                          </p>
+                          <ul className="text-sm text-blue-800 mt-2 space-y-1">
+                            <li>• <strong>Bouton "Masquer" (👁️‍🗨️)</strong> : Permet de faire disparaître complètement le widget</li>
+                            <li>• <strong>Indicateur au survol</strong> : Badge "Masquer" visible sur le bouton Raymond fermé</li>
+                            <li>• <strong>Particulièrement utile sur mobile</strong> pour libérer l'espace de navigation</li>
+                          </ul>
+                          <p className="text-sm text-blue-800 mt-2">
+                            <em>Survolez le bouton Raymond pour voir l'indicateur de masquage.</em>
                           </p>
                         </div>
                       </div>
