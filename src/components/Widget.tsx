@@ -14,6 +14,7 @@ export default function Widget() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [showWelcomeBubble, setShowWelcomeBubble] = useState(false);
   const { botId } = useParams();
 
   const currentBot = chatbots.find(bot => bot.id === botId);
@@ -97,7 +98,12 @@ export default function Widget() {
     if (isMinimized) {
       setIsMinimized(false);
     } else {
-      setIsOpen(!isOpen);
+      const newIsOpen = !isOpen;
+      setIsOpen(newIsOpen);
+      if (newIsOpen && messages.length === 0) {
+        setShowWelcomeBubble(true);
+        setTimeout(() => setShowWelcomeBubble(false), 8000);
+      }
     }
   };
 
@@ -248,6 +254,37 @@ export default function Widget() {
           {!isMinimized && (
             <div className="flex flex-col h-[calc(100%-72px)]">
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {showWelcomeBubble && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <div className="flex items-start gap-3">
+                      <img 
+                        src="https://i.postimg.cc/mg6hR2HV/raymond-portrait.png" 
+                        alt="Assistant" 
+                        className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                      />
+                      <div className="flex-1">
+                        <p className="text-blue-800 text-sm leading-relaxed">
+                          Je suis votre assistant technique personnel, prêt à vous accompagner dans vos projets. Que vous soyez débutant ou expert, tournage, sculpture, ébénisterie ou menuiserie, je vous aide à trouver les bons outils.
+                        </p>
+                        <div className="mt-3 text-blue-800 text-sm">
+                          <p className="font-medium mb-2">Dites-moi simplement :</p>
+                          <ul className="space-y-1 ml-2">
+                            <li>• Sur quel projet travaillez-vous ?</li>
+                            <li>• Quel outil recherchez-vous ?</li>
+                            <li>• Quelle technique souhaitez-vous maîtriser ?</li>
+                          </ul>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setShowWelcomeBubble(false)}
+                        className="text-blue-600 hover:text-blue-800 flex-shrink-0"
+                        title="Fermer"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {messages.length === 0 && (
                   <div className="text-center text-gray-500 mt-8">
                     <p className="text-base font-medium mb-4">Comment puis-je vous aider ?</p>
