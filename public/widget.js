@@ -90,13 +90,40 @@
         return;
       }
       
+      // Validation des données du message
+      if (!event.data || typeof event.data !== 'object') {
+        console.warn('Bordet Widget: Invalid message data format');
+        return;
+      }
+      
       if (event.data.type === 'WIDGET_RESIZE') {
         const { width, height } = event.data;
-        container.style.width = width + 'px';
-        container.style.height = height + 'px';
+        
+        // Validation des dimensions
+        if (typeof width !== 'number' || typeof height !== 'number') {
+          console.warn('Bordet Widget: Invalid resize dimensions');
+          return;
+        }
+        
+        // Limites de sécurité pour les dimensions
+        const maxWidth = Math.min(window.innerWidth, 500);
+        const maxHeight = Math.min(window.innerHeight, 700);
+        const minWidth = 200;
+        const minHeight = 100;
+        
+        const safeWidth = Math.max(minWidth, Math.min(maxWidth, width));
+        const safeHeight = Math.max(minHeight, Math.min(maxHeight, height));
+        
+        container.style.width = safeWidth + 'px';
+        container.style.height = safeHeight + 'px';
       }
       
       if (event.data.type === 'WIDGET_HIDDEN') {
+        // Validation du type de message
+        if (event.data.type !== 'WIDGET_HIDDEN') {
+          console.warn('Bordet Widget: Invalid hide message');
+          return;
+        }
         container.style.display = 'none';
       }
     };
