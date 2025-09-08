@@ -5,19 +5,42 @@
   }
 
   // Vérifier si le widget est déjà chargé
-  if (window.BordetWidgetLoaded) {
+  if (window.__BORDET_WIDGET_NAMESPACE__ && window.__BORDET_WIDGET_NAMESPACE__.loaded) {
     return;
   }
-  window.BordetWidgetLoaded = true;
+  
+  // Créer un namespace isolé
+  window.__BORDET_WIDGET_NAMESPACE__ = window.__BORDET_WIDGET_NAMESPACE__ || {};
+  window.__BORDET_WIDGET_NAMESPACE__.loaded = true;
 
   // Configuration du widget
   const WIDGET_CONFIG = {
     baseUrl: 'https://chatbordet.netlify.app',
-    containerId: 'bordet-assistant-widget'
+    containerId: 'bordet-assistant-widget',
+    // Hash d'intégrité pour vérification future
+    expectedOrigin: 'https://chatbordet.netlify.app'
   };
+
+  // Fonction de validation de l'origine
+  function validateOrigin(url) {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.origin === WIDGET_CONFIG.expectedOrigin;
+    } catch (e) {
+      console.error('Bordet Widget: Invalid URL format');
+      return false;
+    }
+  }
 
   // Fonction pour créer l'iframe du widget
   function createWidgetIframe() {
+    // Valider l'URL avant de créer l'iframe
+    const widgetUrl = WIDGET_CONFIG.baseUrl + '/widget/bot1';
+    if (!validateOrigin(widgetUrl)) {
+      console.error('Bordet Widget: Origin validation failed');
+      return;
+    }
+
     // Supprimer le widget existant s'il y en a un
     const existingWidget = document.getElementById(WIDGET_CONFIG.containerId);
     if (existingWidget) {
@@ -43,7 +66,7 @@
     `;
 
     const iframe = document.createElement('iframe');
-    iframe.src = WIDGET_CONFIG.baseUrl + '/widget/bot1';
+    iframe.src = widgetUrl;
     iframe.style.cssText = `
       width: 100% !important;
       height: 100% !important;
@@ -57,10 +80,15 @@
     iframe.setAttribute('allowtransparency', 'true');
     iframe.setAttribute('frameborder', '0');
     iframe.setAttribute('scrolling', 'no');
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
 
     // Écouter les messages de l'iframe pour redimensionner le container
-    window.addEventListener('message', function(event) {
-      if (event.origin !== WIDGET_CONFIG.baseUrl) return;
+    const messageHandler = function(event) {
+      // Validation stricte de l'origine
+      if (event.origin !== WIDGET_CONFIG.expectedOrigin) {
+        console.warn('Bordet Widget: Message from unauthorized origin:', event.origin);
+        return;
+      }
       
       if (event.data.type === 'WIDGET_RESIZE') {
         const { width, height } = event.data;
@@ -71,7 +99,12 @@
       if (event.data.type === 'WIDGET_HIDDEN') {
         container.style.display = 'none';
       }
-    });
+    };
+
+    window.addEventListener('message', messageHandler);
+    
+    // Stocker la référence pour nettoyage éventuel
+    window.__BORDET_WIDGET_NAMESPACE__.messageHandler = messageHandler;
 
     // Gestion des erreurs de chargement de l'iframe
     iframe.onerror = function() {
@@ -90,7 +123,7 @@
         ">
           <p>Widget temporairement indisponible</p>
           <p style="font-size: 12px; margin-top: 10px;">
-            <a href="${WIDGET_CONFIG.baseUrl}" target="_blank" style="color: #3b82f6;">
+            <a href="${WIDGET_CONFIG.expectedOrigin}" target="_blank" style="color: #3b82f6;">
               Ouvrir dans un nouvel onglet
             </a>
           </p>
@@ -103,6 +136,18 @@
 
     console.log('Bordet Widget: Iframe widget loaded successfully');
   }
+
+  // Fonction de nettoyage (pour usage futur)
+  window.__BORDET_WIDGET_NAMESPACE__.cleanup = function() {
+    const container = document.getElementById(WIDGET_CONFIG.containerId);
+    if (container) {
+      container.remove();
+    }
+    if (window.__BORDET_WIDGET_NAMESPACE__.messageHandler) {
+      window.removeEventListener('message', window.__BORDET_WIDGET_NAMESPACE__.messageHandler);
+    }
+    delete window.__BORDET_WIDGET_NAMESPACE__.loaded;
+  };
 
   // Attendre que le DOM soit prêt
   function init() {
