@@ -37,6 +37,8 @@
       background: transparent !important;
       pointer-events: none !important;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+      box-shadow: none !important;
+      outline: none !important;
     `;
 
     const iframe = document.createElement('iframe');
@@ -47,8 +49,9 @@
       border: none !important;
       background: transparent !important;
       pointer-events: auto !important;
-      border-radius: 12px !important;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      outline: none !important;
     `;
     iframe.setAttribute('allowtransparency', 'true');
     iframe.setAttribute('frameborder', '0');
@@ -68,6 +71,7 @@
           color: #374151;
           font-size: 14px;
           pointer-events: auto;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         ">
           <p>Widget temporairement indisponible</p>
           <p style="font-size: 12px; margin-top: 10px;">
