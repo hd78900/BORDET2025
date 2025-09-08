@@ -129,8 +129,7 @@ export async function getChatResponse(message: string, indexName: string, userId
       });
       response = chatResponse.choices[0].message.content;
     } else {
-      // Determine which index(es) to use based on message content
-      const selectedIndexes = determineIndexes(message, indexName);
+      const index = pc.index(indexName);
 
       try {
         // Get embeddings
@@ -143,42 +142,22 @@ export async function getChatResponse(message: string, indexName: string, userId
           throw new Error('Failed to generate embeddings');
         }
 
-        // Query all selected indexes
-        const allMatches = [];
-        for (const indexName of selectedIndexes) {
-          const index = pc.index(indexName);
-          const queryParams = {
-            vector: embeddings.data[0].embedding,
-            topK: 10, // Reduced per index to maintain total around 20
-            includeMetadata: true
-          };
+        // Query Pinecone with proper configuration
+        const queryParams = {
+          vector: embeddings.data[0].embedding,
+          topK: 20,
+          includeMetadata: true
+        };
 
-          const queryResponse = await index.query(queryParams);
-          if (queryResponse?.matches) {
-            // Add source information to metadata
-            const matchesWithSource = queryResponse.matches.map(match => ({
-              ...match,
-              metadata: {
-                ...match.metadata,
-                source_index: indexName
-              }
-            }));
-            allMatches.push(...matchesWithSource);
-          }
-        }
+        const queryResponse = await index.query(queryParams);
 
-        if (allMatches.length === 0) {
+        if (!queryResponse?.matches) {
           throw new Error('No matches found in vector database');
         }
 
-        // Sort by score and take top 20
-        const sortedMatches = allMatches
-          .sort((a, b) => (b.score || 0) - (a.score || 0))
-          .slice(0, 20);
+        products = extractProductsFromContext(queryResponse.matches);
 
-        products = extractProductsFromContext(sortedMatches);
-
-        const vectorContext = sortedMatches
+        const vectorContext = queryResponse.matches
           .map(match => match.metadata?.text)
           .filter(Boolean)
           .join('\n\n');
@@ -232,54 +211,6 @@ export async function getChatResponse(message: string, indexName: string, userId
     console.error('Error in getChatResponse:', error);
     throw new Error(error.message || 'An error occurred while processing your request. Please try again.');
   }
-}
-
-function determineIndexes(message: string, defaultIndex: string): string[] {
-  const lowerMessage = message.toLowerCase();
-  
-  // Keywords for product-related questions (bordet-siteweb)
-  const productKeywords = [
-    'produit', 'poêle', 'poele', 'insert', 'cheminée', 'cheminee', 'foyer',
-    'prix', 'coût', 'cout', 'acheter', 'vendre', 'modèle', 'modele',
-    'référence', 'reference', 'catalogue', 'gamme', 'série', 'serie',
-    'disponible', 'stock', 'livraison', 'garantie', 'sav',
-    'bordet', 'godin', 'invicta', 'marque', 'fabricant'
-  ];
-  
-  // Keywords for technical questions (bordet-team)
-  const technicalKeywords = [
-    'installation', 'montage', 'technique', 'réparation', 'reparation',
-    'maintenance', 'entretien', 'dépannage', 'depannage', 'problème', 'probleme',
-    'fonctionnement', 'utilisation', 'mode d\'emploi', 'notice',
-    'réglage', 'reglage', 'paramètre', 'parametre', 'configuration',
-    'diagnostic', 'panne', 'dysfonctionnement', 'anomalie',
-    'procédure', 'procedure', 'étape', 'etape', 'méthode', 'methode',
-    'outil', 'équipement', 'equipement', 'matériel', 'materiel',
-    'sécurité', 'securite', 'norme', 'réglementation', 'reglementation'
-  ];
-  
-  const hasProductKeywords = productKeywords.some(keyword => lowerMessage.includes(keyword));
-  const hasTechnicalKeywords = technicalKeywords.some(keyword => lowerMessage.includes(keyword));
-  
-  // If it's a widget call (defaultIndex is bordet-siteweb), apply smart routing
-  if (defaultIndex === 'bordet-siteweb') {
-    if (hasTechnicalKeywords && !hasProductKeywords) {
-      // Pure technical question -> use bordet-team
-      return ['bordet-team'];
-    } else if (hasProductKeywords && !hasTechnicalKeywords) {
-      // Pure product question -> use bordet-siteweb
-      return ['bordet-siteweb'];
-    } else if (hasTechnicalKeywords && hasProductKeywords) {
-      // Mixed question -> use both, prioritizing product info
-      return ['bordet-siteweb', 'bordet-team'];
-    } else {
-      // General question -> use product database as default
-      return ['bordet-siteweb'];
-    }
-  }
-  
-  // For other cases (admin interface), use the specified index
-  return [defaultIndex];
 }
 
 export async function loadChatHistory(userId: string, botId: string) {
