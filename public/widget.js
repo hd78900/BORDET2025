@@ -34,17 +34,7 @@
 
   // Fonction pour créer l'iframe du widget
   function createWidgetIframe() {
-    // Vérifier d'abord si le widget est activé
-    checkWidgetStatus().then(isEnabled => {
-      if (!isEnabled) {
-        console.log('Bordet Widget: Widget disabled from dashboard');
-        return;
-      }
-      createIframe();
-    }).catch(() => {
-      // En cas d'erreur de vérification, créer quand même l'iframe
-      createIframe();
-    });
+    createIframe();
   }
 
   // Fonction pour vérifier le statut du widget
@@ -76,6 +66,32 @@
 
   // Fonction pour créer l'iframe
   function createIframe() {
+    // Vérifier d'abord si le widget est activé
+    checkWidgetStatus().then(isEnabled => {
+      if (!isEnabled) {
+        console.log('Bordet Widget: Widget disabled from dashboard');
+        // Supprimer le widget existant s'il y en a un
+        const existingWidget = document.getElementById(WIDGET_CONFIG.containerId);
+        if (existingWidget) {
+          existingWidget.remove();
+        }
+        return;
+      }
+      
+      // Continuer avec la création du widget
+      createWidgetElement();
+    }).catch(() => {
+      // En cas d'erreur de vérification, masquer le widget par sécurité
+      console.warn('Bordet Widget: Could not verify status, hiding widget');
+      const existingWidget = document.getElementById(WIDGET_CONFIG.containerId);
+      if (existingWidget) {
+        existingWidget.remove();
+      }
+    });
+  }
+
+  // Fonction pour créer l'élément widget
+  function createWidgetElement() {
     // Valider l'URL avant de créer l'iframe
     const widgetUrl = WIDGET_CONFIG.baseUrl + '/widget/bot1';
     if (!validateOrigin(widgetUrl)) {
@@ -179,6 +195,28 @@
     console.log('Bordet Widget: Iframe widget loaded successfully');
   }
 
+  // Fonction pour vérifier périodiquement le statut
+  function startStatusMonitoring() {
+    setInterval(() => {
+      const existingWidget = document.getElementById(WIDGET_CONFIG.containerId);
+      
+      checkWidgetStatus().then(isEnabled => {
+        if (isEnabled && !existingWidget) {
+          // Widget activé mais pas présent -> le créer
+          createWidgetElement();
+        } else if (!isEnabled && existingWidget) {
+          // Widget désactivé mais présent -> le supprimer
+          existingWidget.remove();
+        }
+      }).catch(() => {
+        // En cas d'erreur, supprimer le widget par sécurité
+        if (existingWidget) {
+          existingWidget.remove();
+        }
+      });
+    }, 5000); // Vérifier toutes les 5 secondes
+  }
+
   // Fonction de nettoyage (pour usage futur)
   window.__BORDET_WIDGET_NAMESPACE__.cleanup = function() {
     const container = document.getElementById(WIDGET_CONFIG.containerId);
@@ -203,6 +241,8 @@
   // Initialiser le widget
   try {
     init();
+    // Démarrer la surveillance du statut
+    startStatusMonitoring();
   } catch (error) {
     console.error('Bordet Widget: Initialization failed', error);
   }

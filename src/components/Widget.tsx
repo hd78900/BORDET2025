@@ -22,7 +22,15 @@ export default function Widget() {
   const currentBot = chatbots.find(bot => bot.id === botId);
 
   if (!currentBot) return null;
-  
+
+  // Vérifier si le widget est activé depuis le store
+  if (!widgetEnabled) {
+    return (
+      <div className="fixed bottom-4 right-4 p-4 bg-red-100 border border-red-300 rounded-lg text-red-800 text-sm max-w-xs">
+        Widget désactivé depuis le tableau de bord
+      </div>
+    );
+  }
 
   // Si le widget est masqué, ne rien afficher
   if (isHidden) return null;
