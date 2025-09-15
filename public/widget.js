@@ -16,7 +16,7 @@
   // Configuration du widget
   const WIDGET_CONFIG = {
     baseUrl: 'https://chatbordet.netlify.app',
-    statusUrl: 'https://chatbordet.netlify.app/functions/v1/widget-status',
+    statusUrl: 'https://yyzfuqebakvgecekfqcw.supabase.co/functions/v1/widget-status',
     containerId: 'bordet-assistant-widget',
     // Hash d'intégrité pour vérification future
     expectedOrigin: 'https://chatbordet.netlify.app'

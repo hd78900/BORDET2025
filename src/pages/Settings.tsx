@@ -413,6 +413,22 @@ export default function Settings() {
                     <div className="bg-blue-50 p-4 rounded-lg">
                       <h6 className="font-medium text-blue-900 mb-2">Personnalisation du widget</h6>
                       <button
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('https://yyzfuqebakvgecekfqcw.supabase.co/functions/v1/widget-status');
+                            const data = await response.json();
+                            console.log('Test API widget-status:', data);
+                            alert(`API Response: enabled=${data.enabled}, title="${data.title}"`);
+                          } catch (error) {
+                            console.error('Erreur test API:', error);
+                            alert('Erreur lors du test de l\'API');
+                          }
+                        }}
+                        className="mb-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      >
+                        Tester l'API du widget
+                      </button>
+                      <button
                         onClick={handleSaveWidgetSettings}
                         disabled={savingWidget}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
