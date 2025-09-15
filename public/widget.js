@@ -57,13 +57,6 @@
     if (container) {
       container.remove();
       console.log('Bordet Widget: Widget supprimé du DOM');
-      
-      // Notifier le parent si on est dans un iframe
-      if (window.parent && window.parent !== window) {
-        window.parent.postMessage({
-          type: 'WIDGET_HIDDEN'
-        }, '*');
-      }
     }
   }
 
@@ -190,7 +183,7 @@
         console.log('Bordet Widget: Widget désactivé - suppression en cours');
         hideWidget();
       }
-    }, 30000);
+    }, 5000); // Vérification plus fréquente pour les tests
   }
 
   // Fonction de nettoyage (pour usage futur)

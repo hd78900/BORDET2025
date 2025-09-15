@@ -32,7 +32,7 @@ Deno.serve(async (req: Request) => {
         // Valeurs par défaut si pas de données
         return new Response(
           JSON.stringify({
-            enabled: true,
+            enabled: false, // Par défaut désactivé si erreur
             title: 'Assistant Bordet',
             welcome_message: 'Comment puis-je vous aider ?'
           }),
@@ -70,7 +70,7 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error',
-        enabled: true,
+        enabled: false, // Par défaut désactivé si erreur
         title: 'Assistant Bordet',
         welcome_message: 'Comment puis-je vous aider ?'
       }),
