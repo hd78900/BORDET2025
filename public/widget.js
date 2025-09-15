@@ -40,8 +40,8 @@
   // Fonction pour vérifier le statut du widget
   async function checkWidgetStatus() {
     try {
-      // Faire une requête vers une page qui contient le statut
-      const response = await fetch(WIDGET_CONFIG.baseUrl + '/', {
+      // Faire une requête vers la page du widget qui contient le statut
+      const response = await fetch(WIDGET_CONFIG.baseUrl + '/widget/bot1', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -50,14 +50,21 @@
       
       if (response.ok) {
         const html = await response.text();
-        // Chercher le statut dans le HTML de la page
-        const match = html.match(/window\.__WIDGET_STATUS__\s*=\s*({[^}]+})/);
+        // Chercher le statut dans le HTML de la page du widget
+        const match = html.match(/window\.__WIDGET_STATUS__\s*=\s*({[^}]*})/);
         if (match) {
-          const status = JSON.parse(match[1]);
-          return status.enabled === true;
+          try {
+            const status = JSON.parse(match[1]);
+            console.log('Bordet Widget: Status found:', status);
+            return status.enabled === true;
+          } catch (parseError) {
+            console.warn('Bordet Widget: Failed to parse status JSON:', parseError);
+            return true; // Par défaut actif si erreur de parsing
+          }
         }
       }
-      return true; // Par défaut, afficher le widget si on ne peut pas vérifier
+      console.warn('Bordet Widget: No status found in HTML, defaulting to enabled');
+      return true; // Par défaut actif si pas de statut trouvé
     } catch (error) {
       console.warn('Bordet Widget: Could not check widget status, defaulting to enabled');
       return true;
@@ -198,18 +205,21 @@
       const existingWidget = document.getElementById(WIDGET_CONFIG.containerId);
       
       checkWidgetStatus().then(isEnabled => {
+        console.log('Bordet Widget: Status check result:', isEnabled, 'Widget exists:', !!existingWidget);
         if (isEnabled && !existingWidget) {
           // Widget activé mais pas présent -> le créer
+          console.log('Bordet Widget: Creating widget (enabled and not present)');
           createWidgetElement();
         } else if (!isEnabled && existingWidget) {
           // Widget désactivé mais présent -> le supprimer
+          console.log('Bordet Widget: Removing widget (disabled but present)');
           existingWidget.remove();
         }
       }).catch(() => {
         // En cas d'erreur, ne rien faire pour maintenir l'état actuel
         console.warn('Bordet Widget: Status check failed, maintaining current state');
       });
-    }, 5000); // Vérifier toutes les 5 secondes
+    }, 3000); // Vérifier toutes les 3 secondes
   }
 
   // Fonction de nettoyage (pour usage futur)
