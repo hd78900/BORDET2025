@@ -5,81 +5,46 @@
   }
 
   // Vérifier si le widget est déjà chargé
-  if (window.__BORDET_WIDGET_LOADED__) {
+  if (window.__BORDET_WIDGET_NAMESPACE__ && window.__BORDET_WIDGET_NAMESPACE__.loaded) {
     return;
   }
   
-  window.__BORDET_WIDGET_LOADED__ = true;
+  // Créer un namespace isolé
+  window.__BORDET_WIDGET_NAMESPACE__ = window.__BORDET_WIDGET_NAMESPACE__ || {};
+  window.__BORDET_WIDGET_NAMESPACE__.loaded = true;
 
   // Configuration du widget
   const WIDGET_CONFIG = {
     baseUrl: 'https://chatbordet.netlify.app',
     containerId: 'bordet-assistant-widget',
-    statusUrl: 'https://chatbordet.netlify.app/api/widget-status'
+    // Hash d'intégrité pour vérification future
+    expectedOrigin: 'https://chatbordet.netlify.app'
   };
 
-  // Fonction simple pour vérifier le statut
-  async function checkWidgetStatus() {
+  // Fonction de validation de l'origine
+  function validateOrigin(url) {
     try {
-      console.log('🔍 Widget: Checking status...');
-      
-      // Essayer d'abord l'API dédiée
-      try {
-        const response = await fetch(WIDGET_CONFIG.statusUrl, {
-          method: 'GET',
-          cache: 'no-cache'
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log('✅ Widget: Status from API:', data);
-          return data.enabled === true;
-        }
-      } catch (apiError) {
-        console.log('⚠️ Widget: API not available, trying fallback');
-      }
-      
-      // Fallback : vérifier via localStorage du site principal
-      try {
-        const response = await fetch(WIDGET_CONFIG.baseUrl, {
-          method: 'GET',
-          cache: 'no-cache'
-        });
-        
-        if (response.ok) {
-          const html = await response.text();
-          
-          // Chercher le statut dans le HTML
-          const statusMatch = html.match(/window\.__WIDGET_STATUS__\s*=\s*({[^}]*})/);
-          
-          if (statusMatch) {
-            const statusObj = JSON.parse(statusMatch[1]);
-            console.log('✅ Widget: Status from HTML:', statusObj);
-            return statusObj.enabled === true;
-          }
-        }
-      } catch (htmlError) {
-        console.log('⚠️ Widget: HTML check failed');
-      }
-      
-      // Par défaut : activé (pour éviter les blocages)
-      console.log('🔄 Widget: Using default status (enabled)');
-      return true;
-      
-    } catch (error) {
-      console.error('❌ Widget: Status check error:', error);
-      return true; // Par défaut activé en cas d'erreur
+      const urlObj = new URL(url);
+      return urlObj.origin === WIDGET_CONFIG.expectedOrigin;
+    } catch (e) {
+      console.error('Bordet Widget: Invalid URL format');
+      return false;
     }
   }
 
-  // Fonction pour créer le widget
-  function createWidget() {
-    console.log('🏗️ Widget: Creating widget');
-    
-    // Supprimer le widget existant
-    const existing = document.getElementById(WIDGET_CONFIG.containerId);
-    if (existing) {
-      existing.remove();
+  // Fonction pour créer l'iframe du widget
+  function createWidgetIframe() {
+    // Valider l'URL avant de créer l'iframe
+    const widgetUrl = WIDGET_CONFIG.baseUrl + '/widget/bot1';
+    if (!validateOrigin(widgetUrl)) {
+      console.error('Bordet Widget: Origin validation failed');
+      return;
+    }
+
+    // Supprimer le widget existant s'il y en a un
+    const existingWidget = document.getElementById(WIDGET_CONFIG.containerId);
+    if (existingWidget) {
+      existingWidget.remove();
     }
 
     const container = document.createElement('div');
@@ -91,76 +56,112 @@
       z-index: 9999 !important;
       width: 280px !important;
       height: 270px !important;
+      border: none !important;
+      background: transparent !important;
       pointer-events: auto !important;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+      box-shadow: none !important;
+      outline: none !important;
+      transition: width 0.3s ease, height 0.3s ease !important;
     `;
 
     const iframe = document.createElement('iframe');
-    iframe.src = WIDGET_CONFIG.baseUrl + '/widget/bot1';
+    iframe.src = widgetUrl;
     iframe.style.cssText = `
       width: 100% !important;
       height: 100% !important;
       border: none !important;
       background: transparent !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      outline: none !important;
+      pointer-events: auto !important;
     `;
     iframe.setAttribute('allowtransparency', 'true');
     iframe.setAttribute('frameborder', '0');
+    iframe.setAttribute('scrolling', 'no');
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
 
-    // Gérer les messages de l'iframe
-    window.addEventListener('message', function(event) {
-      if (event.origin !== WIDGET_CONFIG.baseUrl) return;
+    // Écouter les messages de l'iframe pour redimensionner le container
+    const messageHandler = function(event) {
+      // Validation stricte de l'origine
+      if (event.origin !== WIDGET_CONFIG.expectedOrigin) {
+        console.warn('Bordet Widget: Message from unauthorized origin:', event.origin);
+        return;
+      }
       
       if (event.data.type === 'WIDGET_RESIZE') {
-        container.style.width = event.data.width + 'px';
-        container.style.height = event.data.height + 'px';
+        const { width, height } = event.data;
+        container.style.width = width + 'px';
+        container.style.height = height + 'px';
       }
       
       if (event.data.type === 'WIDGET_HIDDEN') {
         container.style.display = 'none';
       }
-    });
+    };
+
+    window.addEventListener('message', messageHandler);
+    
+    // Stocker la référence pour nettoyage éventuel
+    window.__BORDET_WIDGET_NAMESPACE__.messageHandler = messageHandler;
+
+    // Gestion des erreurs de chargement de l'iframe
+    iframe.onerror = function() {
+      console.error('Bordet Widget: Failed to load iframe');
+      container.innerHTML = `
+        <div style="
+          background: #f3f4f6;
+          border: 1px solid #d1d5db;
+          border-radius: 12px;
+          padding: 20px;
+          text-align: center;
+          color: #374151;
+          font-size: 14px;
+          pointer-events: auto;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        ">
+          <p>Widget temporairement indisponible</p>
+          <p style="font-size: 12px; margin-top: 10px;">
+            <a href="${WIDGET_CONFIG.expectedOrigin}" target="_blank" style="color: #3b82f6;">
+              Ouvrir dans un nouvel onglet
+            </a>
+          </p>
+        </div>
+      `;
+    };
 
     container.appendChild(iframe);
     document.body.appendChild(container);
-    console.log('✅ Widget: Created successfully');
+
+    console.log('Bordet Widget: Iframe widget loaded successfully');
   }
 
-  // Fonction pour supprimer le widget
-  function removeWidget() {
-    const existing = document.getElementById(WIDGET_CONFIG.containerId);
-    if (existing) {
-      existing.remove();
-      console.log('🗑️ Widget: Removed successfully');
+  // Fonction de nettoyage (pour usage futur)
+  window.__BORDET_WIDGET_NAMESPACE__.cleanup = function() {
+    const container = document.getElementById(WIDGET_CONFIG.containerId);
+    if (container) {
+      container.remove();
     }
-  }
-
-  // Fonction principale de gestion
-  async function manageWidget() {
-    const isEnabled = await checkWidgetStatus();
-    const exists = document.getElementById(WIDGET_CONFIG.containerId);
-    
-    console.log('🎛️ Widget: Status =', isEnabled, ', Exists =', !!exists);
-    
-    if (isEnabled && !exists) {
-      createWidget();
-    } else if (!isEnabled && exists) {
-      removeWidget();
+    if (window.__BORDET_WIDGET_NAMESPACE__.messageHandler) {
+      window.removeEventListener('message', window.__BORDET_WIDGET_NAMESPACE__.messageHandler);
     }
-  }
+    delete window.__BORDET_WIDGET_NAMESPACE__.loaded;
+  };
 
-  // Initialisation
+  // Attendre que le DOM soit prêt
   function init() {
-    console.log('🚀 Widget: Initializing...');
-    
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', manageWidget);
+      document.addEventListener('DOMContentLoaded', createWidgetIframe);
     } else {
-      manageWidget();
+      createWidgetIframe();
     }
-    
-    // Vérification périodique toutes les 10 secondes
-    setInterval(manageWidget, 10000);
   }
 
-  // Démarrer
-  init();
+  // Initialiser le widget
+  try {
+    init();
+  } catch (error) {
+    console.error('Bordet Widget: Initialization failed', error);
+  }
 })();

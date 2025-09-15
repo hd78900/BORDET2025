@@ -5,7 +5,6 @@ import ReactMarkdown from 'react-markdown';
 import { getChatResponse } from '../lib/api';
 import { ChatMessage } from '../types';
 import { chatbots } from '../config/chatbots';
-import { useConfigStore } from '../store/configStore';
 
 export default function Widget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -21,6 +20,9 @@ export default function Widget() {
   const currentBot = chatbots.find(bot => bot.id === botId);
 
   if (!currentBot) return null;
+
+  // Si le widget est masqué, ne rien afficher
+  if (isHidden) return null;
 
   // Fonction pour notifier le parent du changement de taille
   const notifyResize = (width: number, height: number) => {
