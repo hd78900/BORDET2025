@@ -17,48 +17,9 @@
   const WIDGET_CONFIG = {
     baseUrl: 'https://chatbordet.netlify.app',
     containerId: 'bordet-assistant-widget',
-    expectedOrigin: 'https://chatbordet.netlify.app',
-    statusCheckInterval: 30000 // 30 secondes
+    // Hash d'intégrité pour vérification future
+    expectedOrigin: 'https://chatbordet.netlify.app'
   };
-
-  // Fonction pour vérifier le statut du widget
-  async function checkWidgetStatus() {
-    try {
-      const response = await fetch(`${WIDGET_CONFIG.baseUrl}/functions/v1/widget-status`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Bordet Widget: Status response:', data);
-        return data.enabled === true;
-      }
-    } catch (error) {
-      console.log('Bordet Widget: Status check failed, keeping widget visible', error);
-    }
-    
-    // Par défaut, le widget reste visible en cas d'erreur
-    return true;
-  }
-
-  // Fonction pour masquer/afficher le widget
-  function toggleWidgetVisibility(show) {
-    const container = document.getElementById(WIDGET_CONFIG.containerId);
-    if (container) {
-      if (show) {
-        // Afficher le widget
-        container.style.display = 'block';
-        console.log('Bordet Widget: Widget visible');
-      } else {
-        // Masquer complètement le widget
-        container.style.display = 'none';
-        console.log('Bordet Widget: Widget masqué');
-      }
-    }
-  }
 
   // Fonction de validation de l'origine
   function validateOrigin(url) {
@@ -72,16 +33,7 @@
   }
 
   // Fonction pour créer l'iframe du widget
-  async function createWidgetIframe() {
-    // Vérifier le statut avant de créer le widget
-    const enabled = await checkWidgetStatus();
-    console.log('Bordet Widget: Vérification initiale avant création:', enabled);
-    
-    if (!enabled) {
-      console.log('Bordet Widget: Widget désactivé, aucune création');
-      return;
-    }
-
+  function createWidgetIframe() {
     // Valider l'URL avant de créer l'iframe
     const widgetUrl = WIDGET_CONFIG.baseUrl + '/widget/bot1';
     if (!validateOrigin(widgetUrl)) {
@@ -182,24 +134,6 @@
     container.appendChild(iframe);
     document.body.appendChild(container);
 
-    // Vérifier le statut périodiquement
-    const statusInterval = setInterval(async () => {
-      const enabled = await checkWidgetStatus();
-      console.log('Bordet Widget: Vérification périodique, statut:', enabled);
-      if (!enabled) {
-        // Supprimer complètement le widget
-        const container = document.getElementById(WIDGET_CONFIG.containerId);
-        if (container) {
-          container.remove();
-          console.log('Bordet Widget: Widget supprimé');
-        }
-        clearInterval(statusInterval);
-      }
-    }, WIDGET_CONFIG.statusCheckInterval);
-
-    // Stocker l'intervalle pour nettoyage
-    window.__BORDET_WIDGET_NAMESPACE__.statusInterval = statusInterval;
-
     console.log('Bordet Widget: Iframe widget loaded successfully');
   }
 
@@ -211,9 +145,6 @@
     }
     if (window.__BORDET_WIDGET_NAMESPACE__.messageHandler) {
       window.removeEventListener('message', window.__BORDET_WIDGET_NAMESPACE__.messageHandler);
-    }
-    if (window.__BORDET_WIDGET_NAMESPACE__.statusInterval) {
-      clearInterval(window.__BORDET_WIDGET_NAMESPACE__.statusInterval);
     }
     delete window.__BORDET_WIDGET_NAMESPACE__.loaded;
   };
