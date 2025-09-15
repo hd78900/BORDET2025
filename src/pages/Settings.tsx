@@ -94,6 +94,12 @@ export default function Settings() {
   const handleSaveWidgetSettings = async () => {
     setSavingWidget(true);
     try {
+      console.log('Sauvegarde des paramètres widget:', {
+        enabled: localConfig.widgetEnabled,
+        title: localConfig.widgetTitle,
+        welcome_message: localConfig.widgetWelcomeMessage
+      });
+
       const { error } = await supabase
         .from('widget_settings')
         .update({
@@ -103,7 +109,12 @@ export default function Settings() {
         })
         .eq('id', 1);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erreur lors de la sauvegarde:', error);
+        throw error;
+      }
+
+      console.log('Paramètres sauvegardés avec succès');
 
       // Mettre à jour le store local aussi
       useConfigStore.setState({

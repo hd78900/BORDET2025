@@ -36,6 +36,7 @@
   // Fonction pour vérifier le statut du widget
   async function checkWidgetStatus() {
     try {
+      console.log('Bordet Widget: Vérification du statut...');
       const response = await fetch(WIDGET_CONFIG.statusUrl);
       const data = await response.json();
       console.log('Bordet Widget: Statut reçu:', data);
@@ -44,9 +45,10 @@
       console.error('Bordet Widget: Erreur lors de la vérification du statut:', error);
       // En cas d'erreur, on active le widget par défaut
       return { 
-        enabled: true, 
+        enabled: false, // Changé à false par défaut en cas d'erreur
         title: 'Assistant Bordet', 
-        welcome_message: 'Comment puis-je vous aider ?' 
+        welcome_message: 'Comment puis-je vous aider ?',
+        debug: 'Network error'
       };
     }
   }
@@ -64,6 +66,8 @@
   async function createWidgetIframe() {
     // Vérifier d'abord le statut du widget
     const status = await checkWidgetStatus();
+    
+    console.log('Bordet Widget: Status enabled:', status.enabled);
     
     if (!status.enabled) {
       console.log('Bordet Widget: Widget désactivé depuis le tableau de bord');
@@ -176,14 +180,16 @@
 
   // Fonction pour vérifier périodiquement le statut
   function startStatusMonitoring() {
-    // Vérifier toutes les 30 secondes
+    console.log('Bordet Widget: Démarrage de la surveillance du statut');
+    // Vérifier toutes les 5 secondes pour les tests
     setInterval(async () => {
       const status = await checkWidgetStatus();
+      console.log('Bordet Widget: Vérification périodique, enabled:', status.enabled);
       if (!status.enabled) {
         console.log('Bordet Widget: Widget désactivé - suppression en cours');
         hideWidget();
       }
-    }, 5000); // Vérification plus fréquente pour les tests
+    }, 5000);
   }
 
   // Fonction de nettoyage (pour usage futur)

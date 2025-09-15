@@ -18,6 +18,8 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
+    console.log('Widget Status API called');
+    
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     if (req.method === 'GET') {
@@ -25,7 +27,10 @@ Deno.serve(async (req: Request) => {
       const { data, error } = await supabase
         .from('widget_settings')
         .select('enabled, title, welcome_message')
+        .eq('id', 1)
         .single();
+
+      console.log('Database query result:', { data, error });
 
       if (error) {
         console.error('Error fetching widget settings:', error);
@@ -34,7 +39,8 @@ Deno.serve(async (req: Request) => {
           JSON.stringify({
             enabled: false, // Par défaut désactivé si erreur
             title: 'Assistant Bordet',
-            welcome_message: 'Comment puis-je vous aider ?'
+            welcome_message: 'Comment puis-je vous aider ?',
+            debug: 'Database error: ' + error.message
           }),
           {
             headers: {
@@ -45,12 +51,17 @@ Deno.serve(async (req: Request) => {
         );
       }
 
+      const result = {
+        enabled: data?.enabled ?? false,
+        title: data?.title ?? 'Assistant Bordet',
+        welcome_message: data?.welcome_message ?? 'Comment puis-je vous aider ?',
+        debug: 'Success from database'
+      };
+
+      console.log('Returning result:', result);
+
       return new Response(
-        JSON.stringify({
-          enabled: data?.enabled ?? true,
-          title: data?.title ?? 'Assistant Bordet',
-          welcome_message: data?.welcome_message ?? 'Comment puis-je vous aider ?'
-        }),
+        JSON.stringify(result),
         {
           headers: {
             'Content-Type': 'application/json',
@@ -72,7 +83,8 @@ Deno.serve(async (req: Request) => {
         error: 'Internal server error',
         enabled: false, // Par défaut désactivé si erreur
         title: 'Assistant Bordet',
-        welcome_message: 'Comment puis-je vous aider ?'
+        welcome_message: 'Comment puis-je vous aider ?',
+        debug: 'Server error: ' + error.message
       }),
       {
         status: 500,
