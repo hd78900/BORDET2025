@@ -4,9 +4,9 @@ import { useConfigStore } from '../store/configStore';
 export default function WidgetStatusAPI() {
   const { widgetEnabled } = useConfigStore();
 
-  // Injecter le statut dans le HTML de la page avec plus de détails
+  // Injecter le statut dans le HTML
   React.useEffect(() => {
-    // Supprimer les anciens scripts de statut
+    // Supprimer les anciens scripts
     const existingScripts = document.head.querySelectorAll('script[data-widget-status]');
     existingScripts.forEach(script => script.remove());
     
@@ -15,19 +15,25 @@ export default function WidgetStatusAPI() {
     script.setAttribute('data-widget-status', 'true');
     script.textContent = `window.__WIDGET_STATUS__ = ${JSON.stringify({ 
       enabled: widgetEnabled, 
-      timestamp: new Date().toISOString(),
-      version: '1.0'
+      timestamp: new Date().toISOString()
     })};`;
     document.head.appendChild(script);
+    
+    // Aussi stocker dans localStorage pour accès cross-origin
+    try {
+      localStorage.setItem('bordet_widget_status', JSON.stringify({
+        enabled: widgetEnabled,
+        timestamp: new Date().toISOString()
+      }));
+    } catch (e) {
+      console.warn('Could not save to localStorage:', e);
+    }
     
     console.log('WidgetStatusAPI: Status updated:', { enabled: widgetEnabled });
 
     return () => {
-      // Nettoyer le script lors du démontage
       const scripts = document.head.querySelectorAll('script[data-widget-status]');
-      scripts.forEach(s => {
-          s.remove();
-      });
+      scripts.forEach(s => s.remove());
     };
   }, [widgetEnabled]);
 
