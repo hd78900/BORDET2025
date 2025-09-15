@@ -49,21 +49,12 @@
     const container = document.getElementById(WIDGET_CONFIG.containerId);
     if (container) {
       if (show) {
-        // Restaurer la taille normale
-        container.style.width = '280px';
-        container.style.height = '270px';
-        container.style.opacity = '1';
-        container.style.pointerEvents = 'auto';
-        container.style.visibility = 'visible';
+        // Afficher le widget
+        container.style.display = 'block';
         console.log('Bordet Widget: Widget visible');
       } else {
-        // Masquer en réduisant à 1x1 pixel
-        container.style.width = '1px';
-        container.style.height = '1px';
-        container.style.opacity = '0';
-        container.style.pointerEvents = 'none';
-        container.style.visibility = 'hidden';
-        container.style.overflow = 'hidden';
+        // Masquer complètement le widget
+        container.style.display = 'none';
         console.log('Bordet Widget: Widget masqué');
       }
     }
@@ -81,7 +72,16 @@
   }
 
   // Fonction pour créer l'iframe du widget
-  function createWidgetIframe() {
+  async function createWidgetIframe() {
+    // Vérifier le statut avant de créer le widget
+    const enabled = await checkWidgetStatus();
+    console.log('Bordet Widget: Vérification initiale avant création:', enabled);
+    
+    if (!enabled) {
+      console.log('Bordet Widget: Widget désactivé, aucune création');
+      return;
+    }
+
     // Valider l'URL avant de créer l'iframe
     const widgetUrl = WIDGET_CONFIG.baseUrl + '/widget/bot1';
     if (!validateOrigin(widgetUrl)) {
@@ -182,17 +182,19 @@
     container.appendChild(iframe);
     document.body.appendChild(container);
 
-    // Vérifier le statut initial
-    checkWidgetStatus().then(enabled => {
-      console.log('Bordet Widget: Statut initial reçu:', enabled);
-      toggleWidgetVisibility(enabled);
-    });
-
     // Vérifier le statut périodiquement
     const statusInterval = setInterval(async () => {
       const enabled = await checkWidgetStatus();
       console.log('Bordet Widget: Vérification périodique, statut:', enabled);
-      toggleWidgetVisibility(enabled);
+      if (!enabled) {
+        // Supprimer complètement le widget
+        const container = document.getElementById(WIDGET_CONFIG.containerId);
+        if (container) {
+          container.remove();
+          console.log('Bordet Widget: Widget supprimé');
+        }
+        clearInterval(statusInterval);
+      }
     }, WIDGET_CONFIG.statusCheckInterval);
 
     // Stocker l'intervalle pour nettoyage
