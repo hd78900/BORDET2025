@@ -36,13 +36,14 @@
   // Fonction pour vérifier le statut du widget
   async function checkWidgetStatus() {
     try {
-      console.log('Bordet Widget: Vérification du statut...');
+      console.log('🔍 Bordet Widget: Vérification du statut...', WIDGET_CONFIG.statusUrl);
       const response = await fetch(WIDGET_CONFIG.statusUrl);
+      console.log('🔍 Bordet Widget: Response status:', response.status);
       const data = await response.json();
-      console.log('Bordet Widget: Statut reçu:', data);
+      console.log('🔍 Bordet Widget: Statut reçu:', data);
       return data;
     } catch (error) {
-      console.error('Bordet Widget: Erreur lors de la vérification du statut:', error);
+      console.error('❌ Bordet Widget: Erreur lors de la vérification du statut:', error);
       // En cas d'erreur, on active le widget par défaut
       return { 
         enabled: false, // Changé à false par défaut en cas d'erreur
@@ -58,7 +59,7 @@
     const container = document.getElementById(WIDGET_CONFIG.containerId);
     if (container) {
       container.remove();
-      console.log('Bordet Widget: Widget supprimé du DOM');
+      console.log('🗑️ Bordet Widget: Widget supprimé du DOM');
     }
   }
 
@@ -67,10 +68,10 @@
     // Vérifier d'abord le statut du widget
     const status = await checkWidgetStatus();
     
-    console.log('Bordet Widget: Status enabled:', status.enabled);
+    console.log('🔍 Bordet Widget: Status enabled:', status.enabled);
     
     if (!status.enabled) {
-      console.log('Bordet Widget: Widget désactivé depuis le tableau de bord');
+      console.log('🚫 Bordet Widget: Widget désactivé depuis le tableau de bord');
       hideWidget();
       return;
     }
@@ -175,21 +176,21 @@
     container.appendChild(iframe);
     document.body.appendChild(container);
 
-    console.log('Bordet Widget: Iframe widget loaded successfully');
+    console.log('✅ Bordet Widget: Iframe widget loaded successfully');
   }
 
   // Fonction pour vérifier périodiquement le statut
   function startStatusMonitoring() {
-    console.log('Bordet Widget: Démarrage de la surveillance du statut');
-    // Vérifier toutes les 5 secondes pour les tests
+    console.log('🔄 Bordet Widget: Démarrage de la surveillance du statut');
+    // Vérifier toutes les 3 secondes pour les tests
     setInterval(async () => {
       const status = await checkWidgetStatus();
-      console.log('Bordet Widget: Vérification périodique, enabled:', status.enabled);
+      console.log('🔄 Bordet Widget: Vérification périodique, enabled:', status.enabled);
       if (!status.enabled) {
-        console.log('Bordet Widget: Widget désactivé - suppression en cours');
+        console.log('🚫 Bordet Widget: Widget désactivé - suppression en cours');
         hideWidget();
       }
-    }, 5000);
+    }, 3000); // Réduit à 3 secondes pour les tests
   }
 
   // Fonction de nettoyage (pour usage futur)
@@ -218,8 +219,9 @@
 
   // Initialiser le widget
   try {
+    console.log('🚀 Bordet Widget: Initialisation...');
     init();
   } catch (error) {
-    console.error('Bordet Widget: Initialization failed', error);
+    console.error('❌ Bordet Widget: Initialization failed', error);
   }
 })();
