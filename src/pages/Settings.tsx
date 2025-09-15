@@ -412,6 +412,20 @@ export default function Settings() {
                   <div className="mt-6">
                     <div className="bg-blue-50 p-4 rounded-lg">
                       <h6 className="font-medium text-blue-900 mb-2">Personnalisation du widget</h6>
+                      <div className="flex gap-2 mb-4">
+                        <button
+                          onClick={() => window.open('/test-widget.html', '_blank')}
+                          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                        >
+                          🧪 Ouvrir la page de test du widget
+                        </button>
+                        <button
+                          onClick={() => window.open('https://chatbordet.netlify.app/test-widget.html', '_blank')}
+                          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                        >
+                          🌐 Test sur le site publié
+                        </button>
+                      </div>
                       <button
                         onClick={async () => {
                           try {

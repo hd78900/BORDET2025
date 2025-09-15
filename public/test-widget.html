@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Widget Bordet</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: #dc2626; color: white; }
+        .btn-primary:hover { background: #b91c1c; }
+        .btn-secondary { background: #6b7280; color: white; }
+        .btn-secondary:hover { background: #4b5563; }
+        .btn-success { background: #059669; color: white; }
+        .btn-success:hover { background: #047857; }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        .status.enabled { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+        .status.disabled { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .status.loading { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+        .logs {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .api-test {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+            .controls { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 Test Widget Bordet</h1>
+            <p>Page de diagnostic pour le widget public</p>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="testAPI()">🔍 Tester l'API</button>
+            <button class="btn btn-secondary" onclick="reloadWidget()">🔄 Recharger Widget</button>
+            <button class="btn btn-success" onclick="clearLogs()">🧹 Vider les logs</button>
+            <button class="btn btn-secondary" onclick="checkWidgetPresence()">👀 Vérifier Widget</button>
+        </div>
+
+        <div id="status" class="status loading">
+            🔄 Chargement du statut...
+        </div>
+
+        <div class="api-test">
+            <h3>📡 Test API widget-status</h3>
+            <div id="api-result">Cliquez sur "Tester l'API" pour voir le résultat</div>
+        </div>
+
+        <div class="grid">
+            <div>
+                <h3>📋 Console Logs</h3>
+                <div id="logs" class="logs">Logs du widget apparaîtront ici...\n</div>
+            </div>
+            <div>
+                <h3>ℹ️ Informations</h3>
+                <div class="logs" id="info">
+URL actuelle: ${window.location.href}
+User Agent: ${navigator.userAgent}
+Timestamp: ${new Date().toISOString()}
+
+Widget attendu à: https://chatbordet.netlify.app/widget.js
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Intercepter tous les console.log pour les afficher
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        const logsDiv = document.getElementById('logs');
+        
+        function addLog(type, ...args) {
+            const timestamp = new Date().toLocaleTimeString();
+            const message = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            
+            logsDiv.textContent += `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addLog('log', ...args);
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addLog('error', ...args);
+        };
+        
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            addLog('warn', ...args);
+        };
+
+        // Fonctions de test
+        async function testAPI() {
+            const resultDiv = document.getElementById('api-result');
+            resultDiv.innerHTML = '🔄 Test en cours...';
+            
+            try {
+                console.log('🧪 Test API widget-status...');
+                const response = await fetch('https://yyzfuqebakvgecekfqcw.supabase.co/functions/v1/widget-status');
+                console.log('🧪 Response status:', response.status);
+                const data = await response.json();
+                console.log('🧪 API Response:', data);
+                
+                resultDiv.innerHTML = `
+                    <strong>✅ API Response:</strong><br>
+                    • Status: ${response.status}<br>
+                    • Enabled: ${data.enabled}<br>
+                    • Title: "${data.title}"<br>
+                    • Welcome: "${data.welcome_message}"<br>
+                    • Debug: "${data.debug}"<br>
+                    <pre style="margin-top: 10px; background: #f1f5f9; padding: 10px; border-radius: 4px;">${JSON.stringify(data, null, 2)}</pre>
+                `;
+                
+                updateStatus(data.enabled);
+            } catch (error) {
+                console.error('❌ Erreur test API:', error);
+                resultDiv.innerHTML = `❌ Erreur: ${error.message}`;
+            }
+        }
+
+        function updateStatus(enabled) {
+            const statusDiv = document.getElementById('status');
+            if (enabled) {
+                statusDiv.className = 'status enabled';
+                statusDiv.textContent = '✅ Widget ACTIVÉ - Devrait être visible';
+            } else {
+                statusDiv.className = 'status disabled';
+                statusDiv.textContent = '🚫 Widget DÉSACTIVÉ - Ne devrait pas être visible';
+            }
+        }
+
+        function reloadWidget() {
+            console.log('🔄 Rechargement du widget...');
+            
+            // Supprimer l'ancien widget
+            const existingWidget = document.getElementById('bordet-assistant-widget');
+            if (existingWidget) {
+                existingWidget.remove();
+                console.log('🗑️ Ancien widget supprimé');
+            }
+            
+            // Nettoyer le namespace
+            if (window.__BORDET_WIDGET_NAMESPACE__) {
+                if (window.__BORDET_WIDGET_NAMESPACE__.cleanup) {
+                    window.__BORDET_WIDGET_NAMESPACE__.cleanup();
+                }
+                delete window.__BORDET_WIDGET_NAMESPACE__;
+                console.log('🧹 Namespace nettoyé');
+            }
+            
+            // Recharger le script
+            const script = document.createElement('script');
+            script.src = 'https://chatbordet.netlify.app/widget.js?v=' + Date.now();
+            script.async = true;
+            script.onload = () => console.log('✅ Script widget rechargé');
+            script.onerror = () => console.error('❌ Erreur chargement script widget');
+            document.head.appendChild(script);
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').textContent = 'Logs vidés...\n';
+        }
+
+        function checkWidgetPresence() {
+            const widget = document.getElementById('bordet-assistant-widget');
+            const namespace = window.__BORDET_WIDGET_NAMESPACE__;
+            
+            console.log('👀 Vérification widget:');
+            console.log('• DOM element:', widget ? 'Présent' : 'Absent');
+            console.log('• Namespace:', namespace ? 'Présent' : 'Absent');
+            if (namespace) {
+                console.log('• Version:', namespace.version || 'Non définie');
+                console.log('• Loaded:', namespace.loaded || false);
+            }
+        }
+
+        // Auto-test au chargement
+        window.addEventListener('load', () => {
+            console.log('🚀 Page de test chargée');
+            setTimeout(testAPI, 1000);
+            setTimeout(checkWidgetPresence, 2000);
+        });
+    </script>
+
+    <!-- Chargement du widget -->
+    <script>
+        (function() {
+            const script = document.createElement('script');
+            script.src = 'https://chatbordet.netlify.app/widget.js?v=' + Date.now();
+            script.async = true;
+            document.head.appendChild(script);
+        })();
+    </script>
+</body>
+</html>
