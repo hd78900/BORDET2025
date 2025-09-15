@@ -304,19 +304,7 @@ export default function Settings() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <h4 className="font-medium">Configuration du widget public</h4>
-                  <button
-                    onClick={() => setLocalConfig(prev => ({ ...prev, widgetEnabled: !prev.widgetEnabled }))}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      localConfig.widgetEnabled ? 'bg-blue-500' : 'bg-gray-200'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        localConfig.widgetEnabled ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
+                  <h4 className="text-lg font-medium">Configuration du widget public</h4>
                 </div>
                 {localConfig.widgetEnabled && (
                   <button
@@ -327,6 +315,61 @@ export default function Settings() {
                     {showPreview ? 'Masquer la prévisualisation' : 'Prévisualiser le widget'}
                   </button>
                 )}
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h5 className="font-medium text-gray-900">Affichage du widget sur tous les sites</h5>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Contrôlez la visibilité du widget sur tous les sites où il est déployé
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-sm font-medium ${localConfig.widgetEnabled ? 'text-green-600' : 'text-red-600'}`}>
+                      {localConfig.widgetEnabled ? 'Affiché' : 'Masqué'}
+                    </span>
+                    <button
+                      onClick={() => setLocalConfig(prev => ({ ...prev, widgetEnabled: !prev.widgetEnabled }))}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        localConfig.widgetEnabled ? 'bg-green-500' : 'bg-red-500'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          localConfig.widgetEnabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="mt-4">
+                  <button
+                    onClick={handleSaveWidgetSettings}
+                    disabled={savingWidget}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-white font-medium ${
+                      localConfig.widgetEnabled 
+                        ? 'bg-green-600 hover:bg-green-700' 
+                        : 'bg-red-600 hover:bg-red-700'
+                    } disabled:opacity-50`}
+                  >
+                    {savingWidget ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        Application en cours...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4" />
+                        {localConfig.widgetEnabled ? 'Afficher le widget partout' : 'Masquer le widget partout'}
+                      </>
+                    )}
+                  </button>
+                  <p className="mt-2 text-sm text-gray-500">
+                    <strong>Important :</strong> Cette action affectera immédiatement tous les sites où le widget est déployé.
+                  </p>
+                </div>
               </div>
 
               {localConfig.widgetEnabled && (
@@ -356,26 +399,29 @@ export default function Settings() {
                   </div>
 
                   <div className="mt-6">
-                    <button
-                      onClick={handleSaveWidgetSettings}
-                      disabled={savingWidget}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      {savingWidget ? (
-                        <>
-                          <RefreshCw className="h-4 w-4 animate-spin" />
-                          Sauvegarde en cours...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="h-4 w-4" />
-                          Sauvegarder les paramètres du widget
-                        </>
-                      )}
-                    </button>
-                    <p className="mt-2 text-sm text-gray-500">
-                      <strong>Important :</strong> Cette action affectera tous les sites où le widget est déployé.
-                    </p>
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <h6 className="font-medium text-blue-900 mb-2">Personnalisation du widget</h6>
+                      <button
+                        onClick={handleSaveWidgetSettings}
+                        disabled={savingWidget}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {savingWidget ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                            Sauvegarde en cours...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="h-4 w-4" />
+                            Sauvegarder la personnalisation
+                          </>
+                        )}
+                      </button>
+                      <p className="mt-2 text-sm text-blue-700">
+                        Sauvegarde uniquement le titre et le message de bienvenue.
+                      </p>
+                    </div>
                   </div>
 
                   <div className="mt-6">
