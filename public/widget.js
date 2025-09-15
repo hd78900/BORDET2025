@@ -6,12 +6,18 @@
 
   // Vérifier si le widget est déjà chargé
   if (window.__BORDET_WIDGET_NAMESPACE__ && window.__BORDET_WIDGET_NAMESPACE__.loaded) {
-    return;
+    console.log('🔄 Bordet Widget: Widget déjà chargé, nettoyage...');
+    if (window.__BORDET_WIDGET_NAMESPACE__.cleanup) {
+      window.__BORDET_WIDGET_NAMESPACE__.cleanup();
+    }
   }
   
   // Créer un namespace isolé
   window.__BORDET_WIDGET_NAMESPACE__ = window.__BORDET_WIDGET_NAMESPACE__ || {};
   window.__BORDET_WIDGET_NAMESPACE__.loaded = true;
+  window.__BORDET_WIDGET_NAMESPACE__.version = '2.0.1';
+  
+  console.log('🚀 Bordet Widget v2.0.1: Initialisation...');
 
   // Configuration du widget
   const WIDGET_CONFIG = {
@@ -28,7 +34,7 @@
       const urlObj = new URL(url);
       return urlObj.origin === WIDGET_CONFIG.expectedOrigin;
     } catch (e) {
-      console.error('Bordet Widget: Invalid URL format');
+      console.error('❌ Bordet Widget: Invalid URL format');
       return false;
     }
   }
@@ -68,10 +74,10 @@
     // Vérifier d'abord le statut du widget
     const status = await checkWidgetStatus();
     
-    console.log('🔍 Bordet Widget: Status enabled:', status.enabled);
+    console.log('✅ Bordet Widget: Status enabled:', status.enabled, 'Debug:', status.debug);
     
     if (!status.enabled) {
-      console.log('🚫 Bordet Widget: Widget désactivé depuis le tableau de bord');
+      console.log('🚫 Bordet Widget: Widget désactivé depuis le tableau de bord - suppression');
       hideWidget();
       return;
     }
@@ -79,7 +85,7 @@
     // Valider l'URL avant de créer l'iframe
     const widgetUrl = WIDGET_CONFIG.baseUrl + '/widget/bot1';
     if (!validateOrigin(widgetUrl)) {
-      console.error('Bordet Widget: Origin validation failed');
+      console.error('❌ Bordet Widget: Origin validation failed');
       return;
     }
 
@@ -87,6 +93,7 @@
     const existingWidget = document.getElementById(WIDGET_CONFIG.containerId);
     if (existingWidget) {
       existingWidget.remove();
+      console.log('🔄 Bordet Widget: Widget existant supprimé');
     }
 
     const container = document.createElement('div');
@@ -128,7 +135,7 @@
     const messageHandler = function(event) {
       // Validation stricte de l'origine
       if (event.origin !== WIDGET_CONFIG.expectedOrigin) {
-        console.warn('Bordet Widget: Message from unauthorized origin:', event.origin);
+        console.warn('⚠️ Bordet Widget: Message from unauthorized origin:', event.origin);
         return;
       }
       
@@ -150,7 +157,7 @@
 
     // Gestion des erreurs de chargement de l'iframe
     iframe.onerror = function() {
-      console.error('Bordet Widget: Failed to load iframe');
+      console.error('❌ Bordet Widget: Failed to load iframe');
       container.innerHTML = `
         <div style="
           background: #f3f4f6;
@@ -181,11 +188,11 @@
 
   // Fonction pour vérifier périodiquement le statut
   function startStatusMonitoring() {
-    console.log('🔄 Bordet Widget: Démarrage de la surveillance du statut');
+    console.log('🔄 Bordet Widget: Démarrage de la surveillance du statut (toutes les 3s)');
     // Vérifier toutes les 3 secondes pour les tests
     setInterval(async () => {
       const status = await checkWidgetStatus();
-      console.log('🔄 Bordet Widget: Vérification périodique, enabled:', status.enabled);
+      console.log('🔄 Bordet Widget: Vérification périodique, enabled:', status.enabled, 'Debug:', status.debug);
       if (!status.enabled) {
         console.log('🚫 Bordet Widget: Widget désactivé - suppression en cours');
         hideWidget();
@@ -195,6 +202,7 @@
 
   // Fonction de nettoyage (pour usage futur)
   window.__BORDET_WIDGET_NAMESPACE__.cleanup = function() {
+    console.log('🧹 Bordet Widget: Nettoyage en cours...');
     const container = document.getElementById(WIDGET_CONFIG.containerId);
     if (container) {
       container.remove();
@@ -219,7 +227,6 @@
 
   // Initialiser le widget
   try {
-    console.log('🚀 Bordet Widget: Initialisation...');
     init();
   } catch (error) {
     console.error('❌ Bordet Widget: Initialization failed', error);

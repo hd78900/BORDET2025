@@ -76,7 +76,7 @@ export default function Settings() {
     const code = `<script>
   (function() {
     const script = document.createElement('script');
-    script.src = '${window.location.origin}/widget.js';
+    script.src = '${window.location.origin}/widget.js?v=' + Date.now();
     script.async = true;
     document.head.appendChild(script);
   })();
@@ -420,7 +420,7 @@ export default function Settings() {
                             console.log('🧪 Response status:', response.status);
                             const data = await response.json();
                             console.log('🧪 Test API widget-status:', data);
-                            alert(`✅ API Response:\n- enabled: ${data.enabled}\n- title: "${data.title}"\n- welcome_message: "${data.welcome_message}"`);
+                            alert(`✅ API Response:\n- enabled: ${data.enabled}\n- title: "${data.title}"\n- welcome_message: "${data.welcome_message}"\n- debug: "${data.debug}"`);
                           } catch (error) {
                             console.error('❌ Erreur test API:', error);
                             alert('❌ Erreur lors du test de l\'API: ' + error.message);
@@ -463,7 +463,7 @@ export default function Settings() {
                         <code>{`<script>
   (function() {
     const script = document.createElement('script');
-    script.src = '${window.location.origin}/widget.js';
+    script.src = '${window.location.origin}/widget.js?v=' + Date.now();
     script.async = true;
     document.head.appendChild(script);
   })();
@@ -484,6 +484,11 @@ export default function Settings() {
                     <p className="mt-2 text-sm text-gray-500">
                       Ajoutez ce code juste avant la fermeture de la balise &lt;/body&gt; de votre site web.
                     </p>
+                    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-sm text-yellow-800">
+                        <strong>Note :</strong> Le paramètre ?v= force le rechargement du script pour éviter les problèmes de cache.
+                      </p>
+                    </div>
                   </div>
 
                   {showPreview && (
