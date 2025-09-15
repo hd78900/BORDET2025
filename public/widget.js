@@ -16,6 +16,7 @@
   // Configuration du widget
   const WIDGET_CONFIG = {
     baseUrl: 'https://chatbordet.netlify.app',
+    statusUrl: 'https://chatbordet.netlify.app/functions/v1/widget-status',
     containerId: 'bordet-assistant-widget',
     // Hash d'intégrité pour vérification future
     expectedOrigin: 'https://chatbordet.netlify.app'
@@ -32,8 +33,51 @@
     }
   }
 
+  // Fonction pour vérifier le statut du widget
+  async function checkWidgetStatus() {
+    try {
+      const response = await fetch(WIDGET_CONFIG.statusUrl);
+      const data = await response.json();
+      console.log('Bordet Widget: Statut reçu:', data);
+      return data;
+    } catch (error) {
+      console.error('Bordet Widget: Erreur lors de la vérification du statut:', error);
+      // En cas d'erreur, on active le widget par défaut
+      return { 
+        enabled: true, 
+        title: 'Assistant Bordet', 
+        welcome_message: 'Comment puis-je vous aider ?' 
+      };
+    }
+  }
+
+  // Fonction pour masquer/supprimer le widget
+  function hideWidget() {
+    const container = document.getElementById(WIDGET_CONFIG.containerId);
+    if (container) {
+      container.remove();
+      console.log('Bordet Widget: Widget supprimé du DOM');
+      
+      // Notifier le parent si on est dans un iframe
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          type: 'WIDGET_HIDDEN'
+        }, '*');
+      }
+    }
+  }
+
   // Fonction pour créer l'iframe du widget
-  function createWidgetIframe() {
+  async function createWidgetIframe() {
+    // Vérifier d'abord le statut du widget
+    const status = await checkWidgetStatus();
+    
+    if (!status.enabled) {
+      console.log('Bordet Widget: Widget désactivé depuis le tableau de bord');
+      hideWidget();
+      return;
+    }
+
     // Valider l'URL avant de créer l'iframe
     const widgetUrl = WIDGET_CONFIG.baseUrl + '/widget/bot1';
     if (!validateOrigin(widgetUrl)) {
@@ -137,6 +181,18 @@
     console.log('Bordet Widget: Iframe widget loaded successfully');
   }
 
+  // Fonction pour vérifier périodiquement le statut
+  function startStatusMonitoring() {
+    // Vérifier toutes les 30 secondes
+    setInterval(async () => {
+      const status = await checkWidgetStatus();
+      if (!status.enabled) {
+        console.log('Bordet Widget: Widget désactivé - suppression en cours');
+        hideWidget();
+      }
+    }, 30000);
+  }
+
   // Fonction de nettoyage (pour usage futur)
   window.__BORDET_WIDGET_NAMESPACE__.cleanup = function() {
     const container = document.getElementById(WIDGET_CONFIG.containerId);
@@ -150,12 +206,15 @@
   };
 
   // Attendre que le DOM soit prêt
-  function init() {
+  async function init() {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', createWidgetIframe);
     } else {
-      createWidgetIframe();
+      await createWidgetIframe();
     }
+    
+    // Démarrer la surveillance du statut
+    startStatusMonitoring();
   }
 
   // Initialiser le widget

@@ -5,6 +5,7 @@ import { RefreshCw, Save, CheckCircle2, Sliders, ExternalLink, Code, Copy, Check
 import { useConfigStore } from '../store/configStore';
 import type { MistralModel } from '../types';
 import PublicWidget from '../components/PublicWidget';
+import { supabase } from '../lib/supabase';
 
 const MISTRAL_MODELS = [
   { id: 'mistral-tiny', name: 'Tiny', description: 'Rapide et économique' },
@@ -43,6 +44,7 @@ export default function Settings() {
     widgetTitle,
     widgetWelcomeMessage
   });
+  const [savingWidget, setSavingWidget] = useState(false);
 
   useEffect(() => {
     setLocalConfig({
@@ -86,6 +88,36 @@ export default function Settings() {
       setTimeout(() => setCopiedCode(false), 2000);
     } catch (err) {
       console.error('Failed to copy code:', err);
+    }
+  };
+
+  const handleSaveWidgetSettings = async () => {
+    setSavingWidget(true);
+    try {
+      const { error } = await supabase
+        .from('widget_settings')
+        .update({
+          enabled: localConfig.widgetEnabled,
+          title: localConfig.widgetTitle,
+          welcome_message: localConfig.widgetWelcomeMessage
+        })
+        .eq('id', 1);
+
+      if (error) throw error;
+
+      // Mettre à jour le store local aussi
+      useConfigStore.setState({
+        widgetEnabled: localConfig.widgetEnabled,
+        widgetTitle: localConfig.widgetTitle,
+        widgetWelcomeMessage: localConfig.widgetWelcomeMessage
+      });
+
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde des paramètres du widget:', error);
+    } finally {
+      setSavingWidget(false);
     }
   };
 
@@ -324,6 +356,29 @@ export default function Settings() {
                   </div>
 
                   <div className="mt-6">
+                    <button
+                      onClick={handleSaveWidgetSettings}
+                      disabled={savingWidget}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {savingWidget ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                          Sauvegarde en cours...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4" />
+                          Sauvegarder les paramètres du widget
+                        </>
+                      )}
+                    </button>
+                    <p className="mt-2 text-sm text-gray-500">
+                      <strong>Important :</strong> Cette action affectera tous les sites où le widget est déployé.
+                    </p>
+                  </div>
+
+                  <div className="mt-6">
                     <div className="flex items-center gap-2 mb-4">
                       <Code className="h-5 w-5 text-gray-500" />
                       <h4 className="font-medium">Code d'intégration</h4>
@@ -368,12 +423,13 @@ export default function Settings() {
                           <ul className="text-sm text-blue-800 mt-2 space-y-1">
                             <li>• <strong>Bouton de masquage toujours visible</strong> : Accessible en permanence, sans survol nécessaire</li>
                             <li>• <strong>Masquage depuis l'assistant ouvert</strong> : Bouton dans la barre de titre</li>
+                            <li>• <strong>Contrôle centralisé</strong> : Masquez le widget sur tous les sites depuis ce tableau de bord</li>
                             <li>• <strong>Particulièrement utile sur mobile</strong> pour libérer l'espace de navigation</li>
                             <li>• <strong>Bulle de bienvenue automatique</strong> : Guide l'utilisateur dès l'ouverture</li>
                             <li>• <strong>Sécurité renforcée</strong> : Protection contre les attaques et namespace isolé</li>
                           </ul>
                           <p className="text-sm text-blue-800 mt-2">
-                            <em>Interface optimisée pour une clientèle senior avec sécurité enterprise-grade.</em>
+                            <em>Interface optimisée avec contrôle centralisé et sécurité enterprise-grade.</em>
                           </p>
                         </div>
                       </div>
