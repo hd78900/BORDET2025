@@ -9,6 +9,7 @@ import Layout from './components/Layout';
 import Widget from './components/Widget';
 import { useAuthStore } from './store/authStore';
 import { supabase } from './lib/supabase';
+import { getWidgetStatus } from './lib/api';
 
 function PrivateRoute({ children, requireAdmin = false }: { children: React.ReactNode, requireAdmin?: boolean }) {
   const { user, isAdmin } = useAuthStore();
@@ -79,6 +80,10 @@ function App() {
           element={
             <Widget />
           } 
+        />
+        <Route 
+          path="/api/widget-status" 
+          element={null}
         />
         <Route
           path="/"

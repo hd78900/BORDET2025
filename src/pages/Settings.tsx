@@ -285,6 +285,9 @@ export default function Settings() {
                       }`}
                     />
                   </button>
+                  <span className="ml-3 text-sm text-gray-600">
+                    {localConfig.widgetEnabled ? 'Activé' : 'Masqué (1x1px)'}
+                  </span>
                 </div>
                 {localConfig.widgetEnabled && (
                   <button

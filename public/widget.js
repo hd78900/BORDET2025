@@ -17,9 +17,53 @@
   const WIDGET_CONFIG = {
     baseUrl: 'https://chatbordet.netlify.app',
     containerId: 'bordet-assistant-widget',
-    // Hash d'intégrité pour vérification future
-    expectedOrigin: 'https://chatbordet.netlify.app'
+    expectedOrigin: 'https://chatbordet.netlify.app',
+    statusCheckInterval: 30000 // 30 secondes
   };
+
+  // Fonction pour vérifier le statut du widget
+  async function checkWidgetStatus() {
+    try {
+      const response = await fetch(`${WIDGET_CONFIG.baseUrl}/api/widget-status`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data.enabled === true;
+      }
+    } catch (error) {
+      console.log('Bordet Widget: Status check failed, keeping widget visible');
+    }
+    
+    // Par défaut, le widget reste visible en cas d'erreur
+    return true;
+  }
+
+  // Fonction pour masquer/afficher le widget
+  function toggleWidgetVisibility(show) {
+    const container = document.getElementById(WIDGET_CONFIG.containerId);
+    if (container) {
+      if (show) {
+        // Restaurer la taille normale
+        container.style.width = '280px';
+        container.style.height = '270px';
+        container.style.opacity = '1';
+        container.style.pointerEvents = 'auto';
+        console.log('Bordet Widget: Widget visible');
+      } else {
+        // Masquer en réduisant à 1x1 pixel
+        container.style.width = '1px';
+        container.style.height = '1px';
+        container.style.opacity = '0';
+        container.style.pointerEvents = 'none';
+        console.log('Bordet Widget: Widget masqué');
+      }
+    }
+  }
 
   // Fonction de validation de l'origine
   function validateOrigin(url) {
@@ -134,6 +178,20 @@
     container.appendChild(iframe);
     document.body.appendChild(container);
 
+    // Vérifier le statut initial
+    checkWidgetStatus().then(enabled => {
+      toggleWidgetVisibility(enabled);
+    });
+
+    // Vérifier le statut périodiquement
+    const statusInterval = setInterval(async () => {
+      const enabled = await checkWidgetStatus();
+      toggleWidgetVisibility(enabled);
+    }, WIDGET_CONFIG.statusCheckInterval);
+
+    // Stocker l'intervalle pour nettoyage
+    window.__BORDET_WIDGET_NAMESPACE__.statusInterval = statusInterval;
+
     console.log('Bordet Widget: Iframe widget loaded successfully');
   }
 
@@ -145,6 +203,9 @@
     }
     if (window.__BORDET_WIDGET_NAMESPACE__.messageHandler) {
       window.removeEventListener('message', window.__BORDET_WIDGET_NAMESPACE__.messageHandler);
+    }
+    if (window.__BORDET_WIDGET_NAMESPACE__.statusInterval) {
+      clearInterval(window.__BORDET_WIDGET_NAMESPACE__.statusInterval);
     }
     delete window.__BORDET_WIDGET_NAMESPACE__.loaded;
   };
