@@ -329,8 +329,3 @@ export async function checkMistralStatus() {
     };
   }
 }
-
-export async function getWidgetStatus() {
-  const { widgetEnabled } = useConfigStore.getState();
-  return { enabled: widgetEnabled };
-}
