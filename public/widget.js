@@ -24,7 +24,7 @@
   // Fonction pour vérifier le statut du widget
   async function checkWidgetStatus() {
     try {
-      const response = await fetch(`${WIDGET_CONFIG.baseUrl}/api/widget-status`, {
+      const response = await fetch(`${WIDGET_CONFIG.baseUrl}/functions/v1/widget-status`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json'
@@ -33,10 +33,11 @@
       
       if (response.ok) {
         const data = await response.json();
+        console.log('Bordet Widget: Status response:', data);
         return data.enabled === true;
       }
     } catch (error) {
-      console.log('Bordet Widget: Status check failed, keeping widget visible');
+      console.log('Bordet Widget: Status check failed, keeping widget visible', error);
     }
     
     // Par défaut, le widget reste visible en cas d'erreur
