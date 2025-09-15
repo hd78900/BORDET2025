@@ -18,8 +18,9 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    console.log('Widget Status API called');
+    console.log('Widget Status API called - PUBLIC ACCESS');
     
+    // Utiliser la clé service pour accès public à cette table spécifique
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     if (req.method === 'GET') {
@@ -55,7 +56,7 @@ Deno.serve(async (req: Request) => {
         enabled: data?.enabled ?? false,
         title: data?.title ?? 'Assistant Bordet',
         welcome_message: data?.welcome_message ?? 'Comment puis-je vous aider ?',
-        debug: 'Success from database'
+        debug: 'Success from database - PUBLIC ACCESS'
       };
 
       console.log('Returning result:', result);
