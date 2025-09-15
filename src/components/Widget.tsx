@@ -5,8 +5,10 @@ import ReactMarkdown from 'react-markdown';
 import { getChatResponse } from '../lib/api';
 import { ChatMessage } from '../types';
 import { chatbots } from '../config/chatbots';
+import { useConfigStore } from '../store/configStore';
 
 export default function Widget() {
+  const { widgetEnabled } = useConfigStore();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
@@ -20,6 +22,9 @@ export default function Widget() {
   const currentBot = chatbots.find(bot => bot.id === botId);
 
   if (!currentBot) return null;
+  
+  // Si le widget est désactivé depuis le tableau de bord, ne rien afficher
+  if (!widgetEnabled) return null;
 
   // Si le widget est masqué, ne rien afficher
   if (isHidden) return null;

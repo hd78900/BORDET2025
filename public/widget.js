@@ -34,6 +34,42 @@
 
   // Fonction pour créer l'iframe du widget
   function createWidgetIframe() {
+    // Vérifier d'abord si le widget est activé
+    checkWidgetStatus().then(isEnabled => {
+      if (!isEnabled) {
+        console.log('Bordet Widget: Widget disabled from dashboard');
+        return;
+      }
+      createIframe();
+    }).catch(() => {
+      // En cas d'erreur de vérification, créer quand même l'iframe
+      createIframe();
+    });
+  }
+
+  // Fonction pour vérifier le statut du widget
+  async function checkWidgetStatus() {
+    try {
+      const response = await fetch(WIDGET_CONFIG.baseUrl + '/api/widget-status', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data.enabled === true;
+      }
+      return true; // Par défaut, activer le widget si on ne peut pas vérifier
+    } catch (error) {
+      console.warn('Bordet Widget: Could not check widget status, defaulting to enabled');
+      return true;
+    }
+  }
+
+  // Fonction pour créer l'iframe
+  function createIframe() {
     // Valider l'URL avant de créer l'iframe
     const widgetUrl = WIDGET_CONFIG.baseUrl + '/widget/bot1';
     if (!validateOrigin(widgetUrl)) {

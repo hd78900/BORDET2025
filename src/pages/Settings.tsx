@@ -285,6 +285,11 @@ export default function Settings() {
                       }`}
                     />
                   </button>
+                  <span className={`text-sm font-medium ${
+                    localConfig.widgetEnabled ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {localConfig.widgetEnabled ? 'Actif sur tous les sites' : 'Masqué sur tous les sites'}
+                  </span>
                 </div>
                 {localConfig.widgetEnabled && (
                   <button
@@ -354,6 +359,14 @@ export default function Settings() {
                     <p className="mt-2 text-sm text-gray-500">
                       Ajoutez ce code juste avant la fermeture de la balise &lt;/body&gt; de votre site web.
                     </p>
+                    
+                    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <h6 className="font-medium text-blue-800 mb-2">💡 Contrôle à distance</h6>
+                      <p className="text-sm text-blue-700">
+                        Le bouton d'activation ci-dessus contrôle l'affichage du widget sur <strong>tous les sites</strong> où il est intégré. 
+                        Désactivez-le pour masquer instantanément le widget partout, réactivez-le pour le rendre visible à nouveau.
+                      </p>
+                    </div>
                   </div>
 
                   {showPreview && (

@@ -7,6 +7,7 @@ import FAQ from './pages/FAQ';
 import Login from './pages/Login';
 import Layout from './components/Layout';
 import Widget from './components/Widget';
+import WidgetStatusAPI from './components/WidgetStatusAPI';
 import { useAuthStore } from './store/authStore';
 import { supabase } from './lib/supabase';
 
@@ -79,6 +80,10 @@ function App() {
           element={
             <Widget />
           } 
+        />
+        <Route 
+          path="/api/widget-status" 
+          element={<WidgetStatusAPI />} 
         />
         <Route
           path="/"
