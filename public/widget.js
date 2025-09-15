@@ -54,6 +54,7 @@
         container.style.height = '270px';
         container.style.opacity = '1';
         container.style.pointerEvents = 'auto';
+        container.style.visibility = 'visible';
         console.log('Bordet Widget: Widget visible');
       } else {
         // Masquer en réduisant à 1x1 pixel
@@ -61,6 +62,8 @@
         container.style.height = '1px';
         container.style.opacity = '0';
         container.style.pointerEvents = 'none';
+        container.style.visibility = 'hidden';
+        container.style.overflow = 'hidden';
         console.log('Bordet Widget: Widget masqué');
       }
     }
@@ -181,12 +184,14 @@
 
     // Vérifier le statut initial
     checkWidgetStatus().then(enabled => {
+      console.log('Bordet Widget: Statut initial reçu:', enabled);
       toggleWidgetVisibility(enabled);
     });
 
     // Vérifier le statut périodiquement
     const statusInterval = setInterval(async () => {
       const enabled = await checkWidgetStatus();
+      console.log('Bordet Widget: Vérification périodique, statut:', enabled);
       toggleWidgetVisibility(enabled);
     }, WIDGET_CONFIG.statusCheckInterval);
 

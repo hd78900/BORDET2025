@@ -12,12 +12,12 @@ serve(async (req) => {
   }
 
   try {
-    // Pour l'instant, on retourne toujours enabled: false pour tester
-    // Plus tard, on pourra connecter à Supabase pour récupérer la vraie valeur
+    console.log('Widget status check requested');
     const status = {
       enabled: false, // Changez ça pour tester
       timestamp: new Date().toISOString()
     }
+    console.log('Returning status:', status);
 
     return new Response(
       JSON.stringify(status),
