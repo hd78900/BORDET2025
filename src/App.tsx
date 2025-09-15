@@ -78,12 +78,11 @@ function App() {
         <Route 
           path="/widget/:botId" 
           element={
-            <Widget />
+            <div>
+              <Widget />
+              <WidgetStatusAPI />
+            </div>
           } 
-        />
-        <Route 
-          path="/api/widget-status" 
-          element={<WidgetStatusAPI />} 
         />
         <Route
           path="/"

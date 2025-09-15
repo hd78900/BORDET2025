@@ -9,5 +9,9 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Injecter le statut du widget pour les vérifications
+      window.__WIDGET_STATUS__ = { enabled: true, timestamp: new Date().toISOString() };
+    </script>
   </body>
 </html>

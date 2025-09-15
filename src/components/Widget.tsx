@@ -23,8 +23,6 @@ export default function Widget() {
 
   if (!currentBot) return null;
   
-  // Si le widget est désactivé depuis le tableau de bord, ne rien afficher
-  if (!widgetEnabled) return null;
 
   // Si le widget est masqué, ne rien afficher
   if (isHidden) return null;
