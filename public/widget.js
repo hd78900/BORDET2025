@@ -57,10 +57,10 @@
           return status.enabled === true;
         }
       }
-      return false; // Par défaut, masquer le widget si on ne peut pas vérifier
+      return true; // Par défaut, afficher le widget si on ne peut pas vérifier
     } catch (error) {
-      console.warn('Bordet Widget: Could not check widget status, defaulting to disabled');
-      return false;
+      console.warn('Bordet Widget: Could not check widget status, defaulting to enabled');
+      return true;
     }
   }
 
@@ -81,12 +81,9 @@
       // Continuer avec la création du widget
       createWidgetElement();
     }).catch(() => {
-      // En cas d'erreur de vérification, masquer le widget par sécurité
-      console.warn('Bordet Widget: Could not verify status, hiding widget');
-      const existingWidget = document.getElementById(WIDGET_CONFIG.containerId);
-      if (existingWidget) {
-        existingWidget.remove();
-      }
+      // En cas d'erreur de vérification, afficher le widget par défaut
+      console.warn('Bordet Widget: Could not verify status, showing widget');
+      createWidgetElement();
     });
   }
 
@@ -209,10 +206,8 @@
           existingWidget.remove();
         }
       }).catch(() => {
-        // En cas d'erreur, supprimer le widget par sécurité
-        if (existingWidget) {
-          existingWidget.remove();
-        }
+        // En cas d'erreur, ne rien faire pour maintenir l'état actuel
+        console.warn('Bordet Widget: Status check failed, maintaining current state');
       });
     }, 5000); // Vérifier toutes les 5 secondes
   }
