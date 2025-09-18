@@ -15,17 +15,22 @@
   // Créer un namespace isolé
   window.__BORDET_WIDGET_NAMESPACE__ = window.__BORDET_WIDGET_NAMESPACE__ || {};
   window.__BORDET_WIDGET_NAMESPACE__.loaded = true;
-  window.__BORDET_WIDGET_NAMESPACE__.version = '2.0.1';
+  window.__BORDET_WIDGET_NAMESPACE__.version = '2.0.2';
   
-  console.log('🚀 Bordet Widget v2.0.1: Initialisation...');
+  console.log('🚀 Bordet Widget v2.0.2: Initialisation...');
 
-  // Configuration du widget
+  // Configuration du widget avec fallback
   const WIDGET_CONFIG = {
     baseUrl: 'https://chatbordet.netlify.app',
     statusUrl: 'https://yyzfuqebakvgecekfqcw.supabase.co/functions/v1/widget-status',
     containerId: 'bordet-assistant-widget',
-    // Hash d'intégrité pour vérification future
-    expectedOrigin: 'https://chatbordet.netlify.app'
+    expectedOrigin: 'https://chatbordet.netlify.app',
+    // Configuration par défaut si l'API échoue
+    fallbackConfig: {
+      enabled: true, // Activé par défaut
+      title: 'Assistant Bordet',
+      welcome_message: 'Comment puis-je vous aider ?'
+    }
   };
 
   // Fonction de validation de l'origine
@@ -39,23 +44,51 @@
     }
   }
 
-  // Fonction pour vérifier le statut du widget
+  // Fonction pour vérifier le statut du widget avec fallback
   async function checkWidgetStatus() {
     try {
       console.log('🔍 Bordet Widget: Vérification du statut...', WIDGET_CONFIG.statusUrl);
-      const response = await fetch(WIDGET_CONFIG.statusUrl);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // Timeout 5s
+      
+      const response = await fetch(WIDGET_CONFIG.statusUrl, {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      clearTimeout(timeoutId);
       console.log('🔍 Bordet Widget: Response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
       console.log('🔍 Bordet Widget: Statut reçu:', data);
-      return data;
+      
+      // Vérifier si la réponse contient les bonnes propriétés
+      if (typeof data.enabled === 'boolean') {
+        return {
+          enabled: data.enabled,
+          title: data.title || WIDGET_CONFIG.fallbackConfig.title,
+          welcome_message: data.welcome_message || WIDGET_CONFIG.fallbackConfig.welcome_message,
+          debug: data.debug || 'API Success'
+        };
+      } else {
+        throw new Error('Invalid API response format');
+      }
+      
     } catch (error) {
-      console.error('❌ Bordet Widget: Erreur lors de la vérification du statut:', error);
-      // En cas d'erreur, on active le widget par défaut
-      return { 
-        enabled: false, // Changé à false par défaut en cas d'erreur
-        title: 'Assistant Bordet', 
-        welcome_message: 'Comment puis-je vous aider ?',
-        debug: 'Network error'
+      console.warn('⚠️ Bordet Widget: API indisponible, utilisation de la configuration par défaut:', error.message);
+      
+      // Retourner la configuration par défaut
+      return {
+        ...WIDGET_CONFIG.fallbackConfig,
+        debug: `Fallback mode: ${error.message}`
       };
     }
   }
@@ -77,7 +110,7 @@
     console.log('✅ Bordet Widget: Status enabled:', status.enabled, 'Debug:', status.debug);
     
     if (!status.enabled) {
-      console.log('🚫 Bordet Widget: Widget désactivé depuis le tableau de bord - suppression');
+      console.log('🚫 Bordet Widget: Widget désactivé - suppression');
       hideWidget();
       return;
     }
@@ -186,21 +219,28 @@
     console.log('✅ Bordet Widget: Iframe widget loaded successfully');
   }
 
-  // Fonction pour vérifier périodiquement le statut
+  // Fonction pour vérifier périodiquement le statut (moins fréquent pour éviter le spam)
   function startStatusMonitoring() {
-    console.log('🔄 Bordet Widget: Démarrage de la surveillance du statut (toutes les 3s)');
-    // Vérifier toutes les 3 secondes pour les tests
+    console.log('🔄 Bordet Widget: Démarrage de la surveillance du statut (toutes les 30s)');
+    
+    // Vérifier toutes les 30 secondes (plus raisonnable)
     setInterval(async () => {
       const status = await checkWidgetStatus();
       console.log('🔄 Bordet Widget: Vérification périodique, enabled:', status.enabled, 'Debug:', status.debug);
-      if (!status.enabled) {
+      
+      const currentWidget = document.getElementById(WIDGET_CONFIG.containerId);
+      
+      if (!status.enabled && currentWidget) {
         console.log('🚫 Bordet Widget: Widget désactivé - suppression en cours');
         hideWidget();
+      } else if (status.enabled && !currentWidget) {
+        console.log('✅ Bordet Widget: Widget activé - création en cours');
+        await createWidgetIframe();
       }
-    }, 3000); // Réduit à 3 secondes pour les tests
+    }, 30000); // 30 secondes
   }
 
-  // Fonction de nettoyage (pour usage futur)
+  // Fonction de nettoyage
   window.__BORDET_WIDGET_NAMESPACE__.cleanup = function() {
     console.log('🧹 Bordet Widget: Nettoyage en cours...');
     const container = document.getElementById(WIDGET_CONFIG.containerId);
