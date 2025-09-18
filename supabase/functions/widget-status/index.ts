@@ -96,10 +96,10 @@ Deno.serve(async (req: Request) => {
         
         return new Response(
           JSON.stringify({
-            enabled: false, // DÉSACTIVÉ en cas d'erreur pour permettre le contrôle
+            enabled: false, // WIDGET FORCÉ DÉSACTIVÉ
             title: 'Assistant Bordet',
             welcome_message: 'Comment puis-je vous aider ?',
-            debug: `DB Access Error: ${dbError.message}`,
+            debug: `WIDGET FORCÉ DÉSACTIVÉ - DB Error: ${error.message}`,
             timestamp: new Date().toISOString(),
             fallback: true
           }),

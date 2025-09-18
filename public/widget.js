@@ -27,7 +27,7 @@
     expectedOrigin: 'https://chatbordet.netlify.app',
     // Configuration par défaut si l'API échoue
     fallbackConfig: {
-      enabled: true, // Activé par défaut
+      enabled: false, // DÉSACTIVÉ par défaut pour permettre le contrôle
       title: 'Assistant Bordet',
       welcome_message: 'Comment puis-je vous aider ?'
     }

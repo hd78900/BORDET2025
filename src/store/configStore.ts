@@ -5,7 +5,7 @@ import { ConfigState, MistralModel } from '../types';
 const initialState = {
   model: 'mistral-medium' as MistralModel,
   testMode: false,
-  widgetEnabled: false, // Widget masqué
+  widgetEnabled: false, // Widget FORCÉ MASQUÉ
   widgetTitle: 'Assistant Bordet',
   widgetWelcomeMessage: 'Comment puis-je vous aider ?',
   temperature: 0.7,
