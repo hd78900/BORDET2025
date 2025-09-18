@@ -14,16 +14,18 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    console.log('🌐 Widget Status API - Démarrage...');
+    
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    
+    console.log('🔗 Connexion avec clé anonyme...');
+    
     // Import dynamique pour éviter les erreurs
     const { createClient } = await import('npm:@supabase/supabase-js@2');
     
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
-    console.log('🌐 Widget Status API - Tentative de connexion...');
-    
-    // Créer le client Supabase avec la clé service (bypass RLS)
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+    // Créer le client Supabase avec la clé anonyme (accès public)
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false
@@ -34,7 +36,7 @@ Deno.serve(async (req: Request) => {
       console.log('📡 GET /widget-status - Récupération des paramètres...');
       
       try {
-        // Récupérer directement depuis la table (bypass RLS avec service key)
+        // Récupérer depuis la table (accès public configuré)
         const { data, error } = await supabase
           .from('widget_settings')
           .select('enabled, title, welcome_message, updated_at')
@@ -45,10 +47,10 @@ Deno.serve(async (req: Request) => {
 
         if (error) {
           console.error('❌ Erreur DB:', error);
-          // Retourner config par défaut en cas d'erreur
+          // En cas d'erreur, retourner widget DÉSACTIVÉ pour permettre le contrôle
           return new Response(
             JSON.stringify({
-              enabled: true, // Activé par défaut
+              enabled: false, // DÉSACTIVÉ par défaut en cas d'erreur
               title: 'Assistant Bordet',
               welcome_message: 'Comment puis-je vous aider ?',
               debug: `DB Error: ${error.message}`,
@@ -56,6 +58,7 @@ Deno.serve(async (req: Request) => {
               fallback: true
             }),
             {
+              status: 200,
               headers: {
                 'Content-Type': 'application/json',
                 ...corsHeaders,
@@ -70,7 +73,7 @@ Deno.serve(async (req: Request) => {
           title: data?.title ?? 'Assistant Bordet',
           welcome_message: data?.welcome_message ?? 'Comment puis-je vous aider ?',
           updated_at: data?.updated_at,
-          debug: 'Success - Service key access',
+          debug: 'Success - Public access',
           timestamp: new Date().toISOString(),
           fallback: false
         };
@@ -80,6 +83,7 @@ Deno.serve(async (req: Request) => {
         return new Response(
           JSON.stringify(result),
           {
+            status: 200,
             headers: {
               'Content-Type': 'application/json',
               ...corsHeaders,
@@ -92,7 +96,7 @@ Deno.serve(async (req: Request) => {
         
         return new Response(
           JSON.stringify({
-            enabled: true, // Activé par défaut
+            enabled: false, // DÉSACTIVÉ en cas d'erreur pour permettre le contrôle
             title: 'Assistant Bordet',
             welcome_message: 'Comment puis-je vous aider ?',
             debug: `DB Access Error: ${dbError.message}`,
@@ -100,6 +104,7 @@ Deno.serve(async (req: Request) => {
             fallback: true
           }),
           {
+            status: 200,
             headers: {
               'Content-Type': 'application/json',
               ...corsHeaders,
@@ -124,10 +129,10 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error('💥 Erreur serveur critique:', error);
     
-    // Fallback ultime
+    // Fallback ultime - DÉSACTIVÉ pour permettre le contrôle
     return new Response(
       JSON.stringify({ 
-        enabled: true, // Toujours activé en cas d'erreur critique
+        enabled: false, // DÉSACTIVÉ en cas d'erreur critique
         title: 'Assistant Bordet',
         welcome_message: 'Comment puis-je vous aider ?',
         debug: `Server Error: ${error.message}`,
