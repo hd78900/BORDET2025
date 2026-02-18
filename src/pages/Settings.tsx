@@ -15,13 +15,12 @@ const MISTRAL_MODELS = [
 ];
 
 export default function Settings() {
-  const { 
-    model, 
+  const {
+    model,
     testMode,
     temperature,
     systemPrompt,
     contextRules,
-    widgetEnabled,
     widgetTitle,
     widgetWelcomeMessage
   } = useConfigStore();
@@ -40,7 +39,6 @@ export default function Settings() {
     temperature,
     systemPrompt,
     contextRules,
-    widgetEnabled,
     widgetTitle,
     widgetWelcomeMessage
   });
@@ -51,11 +49,10 @@ export default function Settings() {
       temperature,
       systemPrompt,
       contextRules,
-      widgetEnabled,
       widgetTitle,
       widgetWelcomeMessage
     });
-  }, [temperature, systemPrompt, contextRules, widgetEnabled, widgetTitle, widgetWelcomeMessage]);
+  }, [temperature, systemPrompt, contextRules, widgetTitle, widgetWelcomeMessage]);
 
   const handleSaveConfig = () => {
     setIsSaving(true);
@@ -94,31 +91,17 @@ export default function Settings() {
   const handleSaveWidgetSettings = async () => {
     setSavingWidget(true);
     try {
-      console.log('Sauvegarde des paramètres widget:', {
-        enabled: localConfig.widgetEnabled,
-        title: localConfig.widgetTitle,
-        welcome_message: localConfig.widgetWelcomeMessage
-      });
-
       const { error } = await supabase
         .from('widget_settings')
         .update({
-          enabled: localConfig.widgetEnabled,
           title: localConfig.widgetTitle,
           welcome_message: localConfig.widgetWelcomeMessage
         })
         .eq('id', 1);
 
-      if (error) {
-        console.error('Erreur lors de la sauvegarde:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('Paramètres sauvegardés avec succès');
-
-      // Mettre à jour le store local aussi
       useConfigStore.setState({
-        widgetEnabled: localConfig.widgetEnabled,
         widgetTitle: localConfig.widgetTitle,
         widgetWelcomeMessage: localConfig.widgetWelcomeMessage
       });
@@ -317,164 +300,68 @@ export default function Settings() {
                 <div className="flex items-center gap-2">
                   <h4 className="text-lg font-medium">Configuration du widget public</h4>
                 </div>
-                {localConfig.widgetEnabled && (
-                  <button
-                    onClick={() => setShowPreview(!showPreview)}
-                    className="flex items-center gap-2 text-blue-600 hover:text-blue-700"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    {showPreview ? 'Masquer la prévisualisation' : 'Prévisualiser le widget'}
-                  </button>
-                )}
+                <button
+                  onClick={() => setShowPreview(!showPreview)}
+                  className="flex items-center gap-2 text-blue-600 hover:text-blue-700"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  {showPreview ? 'Masquer la prévisualisation' : 'Prévisualiser le widget'}
+                </button>
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h5 className="font-medium text-gray-900">Affichage du widget sur tous les sites</h5>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Contrôlez la visibilité du widget sur tous les sites où il est déployé
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`text-sm font-medium ${localConfig.widgetEnabled ? 'text-green-600' : 'text-red-600'}`}>
-                      {localConfig.widgetEnabled ? 'Affiché' : 'Masqué'}
-                    </span>
-                    <button
-                      onClick={() => setLocalConfig(prev => ({ ...prev, widgetEnabled: !prev.widgetEnabled }))}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        localConfig.widgetEnabled ? 'bg-green-500' : 'bg-red-500'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          localConfig.widgetEnabled ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Titre du widget
+                  </label>
+                  <input
+                    type="text"
+                    value={localConfig.widgetTitle}
+                    onChange={(e) => setLocalConfig(prev => ({ ...prev, widgetTitle: e.target.value }))}
+                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-12"
+                  />
                 </div>
-                
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Message de bienvenue
+                  </label>
+                  <input
+                    type="text"
+                    value={localConfig.widgetWelcomeMessage}
+                    onChange={(e) => setLocalConfig(prev => ({ ...prev, widgetWelcomeMessage: e.target.value }))}
+                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-12"
+                  />
+                </div>
+
                 <div className="mt-4">
                   <button
                     onClick={handleSaveWidgetSettings}
                     disabled={savingWidget}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-white font-medium ${
-                      localConfig.widgetEnabled 
-                        ? 'bg-green-600 hover:bg-green-700' 
-                        : 'bg-red-600 hover:bg-red-700'
-                    } disabled:opacity-50`}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
                   >
                     {savingWidget ? (
                       <>
                         <RefreshCw className="h-4 w-4 animate-spin" />
-                        Application en cours...
+                        Sauvegarde en cours...
                       </>
                     ) : (
                       <>
                         <Save className="h-4 w-4" />
-                        {localConfig.widgetEnabled ? 'Afficher le widget partout' : 'Masquer le widget partout'}
+                        Sauvegarder la personnalisation
                       </>
                     )}
                   </button>
-                  <p className="mt-2 text-sm text-gray-500">
-                    <strong>Important :</strong> Cette action affectera immédiatement tous les sites où le widget est déployé.
-                  </p>
                 </div>
-              </div>
 
-              {localConfig.widgetEnabled && (
-                <div className="space-y-4 pl-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Titre du widget
-                    </label>
-                    <input
-                      type="text"
-                      value={localConfig.widgetTitle}
-                      onChange={(e) => setLocalConfig(prev => ({ ...prev, widgetTitle: e.target.value }))}
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-12"
-                    />
+                <div className="mt-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Code className="h-5 w-5 text-gray-500" />
+                    <h4 className="font-medium">Code d'intégration</h4>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Message de bienvenue
-                    </label>
-                    <input
-                      type="text"
-                      value={localConfig.widgetWelcomeMessage}
-                      onChange={(e) => setLocalConfig(prev => ({ ...prev, widgetWelcomeMessage: e.target.value }))}
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-12"
-                    />
-                  </div>
-
-                  <div className="mt-6">
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <h6 className="font-medium text-blue-900 mb-2">Personnalisation du widget</h6>
-                      <div className="flex gap-2 mb-4">
-                        <button
-                          onClick={() => window.open('/test-widget.html', '_blank')}
-                          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                        >
-                          🧪 Ouvrir la page de test du widget
-                        </button>
-                        <button
-                          onClick={() => window.open('https://chatbordet.netlify.app/test-widget.html', '_blank')}
-                          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                        >
-                          🌐 Test sur le site publié
-                        </button>
-                      </div>
-                      <button
-                        onClick={async () => {
-                          try {
-                            console.log('🧪 Test API widget-status...');
-                            const response = await fetch('https://yyzfuqebakvgecekfqcw.supabase.co/functions/v1/widget-status');
-                            console.log('🧪 Response status:', response.status);
-                            const data = await response.json();
-                            console.log('🧪 Test API widget-status:', data);
-                            alert(`✅ API Response:\n- enabled: ${data.enabled}\n- title: "${data.title}"\n- welcome_message: "${data.welcome_message}"\n- debug: "${data.debug}"`);
-                          } catch (error) {
-                            console.error('❌ Erreur test API:', error);
-                            alert('❌ Erreur lors du test de l\'API: ' + error.message);
-                          }
-                        }}
-                        className="mb-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                      >
-                        Tester l'API du widget
-                      </button>
-                      <button
-                        onClick={handleSaveWidgetSettings}
-                        disabled={savingWidget}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                      >
-                        {savingWidget ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 animate-spin" />
-                            Sauvegarde en cours...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="h-4 w-4" />
-                            Sauvegarder la personnalisation
-                          </>
-                        )}
-                      </button>
-                      <p className="mt-2 text-sm text-blue-700">
-                        Sauvegarde uniquement le titre et le message de bienvenue.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-6">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Code className="h-5 w-5 text-gray-500" />
-                      <h4 className="font-medium">Code d'intégration</h4>
-                    </div>
-                    <div className="relative">
-                      <pre className="bg-gray-50 p-4 rounded-lg text-sm overflow-x-auto">
-                        <code>{`<script>
+                  <div className="relative">
+                    <pre className="bg-gray-50 p-4 rounded-lg text-sm overflow-x-auto">
+                      <code>{`<script>
   (function() {
     const script = document.createElement('script');
     script.src = '${window.location.origin}/widget.js?v=' + Date.now();
@@ -482,55 +369,31 @@ export default function Settings() {
     document.head.appendChild(script);
   })();
 </script>`}</code>
-                      </pre>
-                      <button
-                        onClick={handleCopyCode}
-                        className="absolute top-2 right-2 p-2 text-gray-500 hover:text-gray-700 rounded-md hover:bg-gray-100"
-                        title="Copier le code"
-                      >
-                        {copiedCode ? (
-                          <Check className="h-5 w-5 text-green-500" />
-                        ) : (
-                          <Copy className="h-5 w-5" />
-                        )}
-                      </button>
-                    </div>
-                    <p className="mt-2 text-sm text-gray-500">
-                      Ajoutez ce code juste avant la fermeture de la balise &lt;/body&gt; de votre site web.
-                    </p>
-                    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <p className="text-sm text-yellow-800">
-                        <strong>Note :</strong> Le paramètre ?v= force le rechargement du script pour éviter les problèmes de cache.
-                      </p>
-                    </div>
+                    </pre>
+                    <button
+                      onClick={handleCopyCode}
+                      className="absolute top-2 right-2 p-2 text-gray-500 hover:text-gray-700 rounded-md hover:bg-gray-100"
+                      title="Copier le code"
+                    >
+                      {copiedCode ? (
+                        <Check className="h-5 w-5 text-green-500" />
+                      ) : (
+                        <Copy className="h-5 w-5" />
+                      )}
+                    </button>
                   </div>
-
-                  {showPreview && (
-                    <div className="mt-6 p-6 bg-gray-50 rounded-lg">
-                      <h5 className="text-sm font-medium text-gray-700 mb-4">Prévisualisation du widget</h5>
-                      <div className="relative">
-                        <PublicWidget />
-                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                          <p className="text-sm text-blue-800">
-                            <strong>Nouvelles fonctionnalités :</strong>
-                          </p>
-                          <ul className="text-sm text-blue-800 mt-2 space-y-1">
-                            <li>• <strong>Bouton de masquage toujours visible</strong> : Accessible en permanence, sans survol nécessaire</li>
-                            <li>• <strong>Masquage depuis l'assistant ouvert</strong> : Bouton dans la barre de titre</li>
-                            <li>• <strong>Contrôle centralisé</strong> : Masquez le widget sur tous les sites depuis ce tableau de bord</li>
-                            <li>• <strong>Particulièrement utile sur mobile</strong> pour libérer l'espace de navigation</li>
-                            <li>• <strong>Bulle de bienvenue automatique</strong> : Guide l'utilisateur dès l'ouverture</li>
-                            <li>• <strong>Sécurité renforcée</strong> : Protection contre les attaques et namespace isolé</li>
-                          </ul>
-                          <p className="text-sm text-blue-800 mt-2">
-                            <em>Interface optimisée avec contrôle centralisé et sécurité enterprise-grade.</em>
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  <p className="mt-2 text-sm text-gray-500">
+                    Ajoutez ce code juste avant la fermeture de la balise &lt;/body&gt; de votre site web.
+                  </p>
                 </div>
-              )}
+
+                {showPreview && (
+                  <div className="mt-6 p-6 bg-gray-50 rounded-lg">
+                    <h5 className="text-sm font-medium text-gray-700 mb-4">Prévisualisation du widget</h5>
+                    <PublicWidget />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

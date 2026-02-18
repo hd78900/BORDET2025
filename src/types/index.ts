@@ -33,7 +33,6 @@ export type MistralModel = 'mistral-tiny' | 'mistral-small' | 'mistral-medium' |
 export interface ConfigState {
   model: MistralModel;
   testMode: boolean;
-  widgetEnabled: boolean;
   widgetTitle: string;
   widgetWelcomeMessage: string;
   temperature: number;
@@ -42,7 +41,6 @@ export interface ConfigState {
   contextRules: Record<string, string>;
   setModel: (model: MistralModel) => void;
   setTestMode: (testMode: boolean) => void;
-  setWidgetEnabled: (enabled: boolean) => void;
   setWidgetTitle: (title: string) => void;
   setWidgetWelcomeMessage: (message: string) => void;
   setTemperature: (temperature: number) => void;

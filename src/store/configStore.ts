@@ -5,7 +5,6 @@ import { ConfigState, MistralModel } from '../types';
 const initialState = {
   model: 'mistral-medium' as MistralModel,
   testMode: false,
-  widgetEnabled: false, // Widget FORCÉ MASQUÉ
   widgetTitle: 'Assistant Bordet',
   widgetWelcomeMessage: 'Comment puis-je vous aider ?',
   temperature: 0.7,
@@ -92,7 +91,6 @@ export const useConfigStore = create<ConfigState>()(
       ...initialState,
       setModel: (model: MistralModel) => set({ model }),
       setTestMode: (testMode: boolean) => set({ testMode }),
-      setWidgetEnabled: (enabled: boolean) => set({ widgetEnabled: enabled }),
       setWidgetTitle: (title: string) => set({ widgetTitle: title }),
       setWidgetWelcomeMessage: (message: string) => set({ widgetWelcomeMessage: message }),
       setTemperature: (temperature: number) => set({ temperature }),
