@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Copy, Check, Code, MessageSquare, Monitor, Smartphone, ExternalLink } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import WidgetCore from '../components/WidgetCore';
 
 const WIDGET_ORIGIN = 'https://chatbordet.netlify.app';
 
@@ -211,17 +212,9 @@ export default function Integrate() {
                 </div>
               </div>
 
-              <iframe
-                src={`${WIDGET_ORIGIN}/widget/bot1`}
-                className="absolute bottom-0 right-0 border-none"
-                style={{
-                  width: '380px',
-                  height: '520px',
-                  pointerEvents: 'auto'
-                }}
-                allow="clipboard-read; clipboard-write"
-                title="Widget preview"
-              />
+              <div className="absolute bottom-0 right-0" style={{ width: '420px', height: '100%' }}>
+                <WidgetCore botId="bot1" embedded />
+              </div>
             </div>
           </div>
           <p className="text-xs text-gray-500 mt-2 text-center">
