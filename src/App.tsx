@@ -5,6 +5,7 @@ import Settings from './pages/Settings';
 import Admin from './pages/Admin';
 import FAQ from './pages/FAQ';
 import Login from './pages/Login';
+import Integrate from './pages/Integrate';
 import Layout from './components/Layout';
 import Widget from './components/Widget';
 import { useAuthStore } from './store/authStore';
@@ -74,11 +75,12 @@ function App() {
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route 
-          path="/widget/:botId" 
+        <Route path="/integrate" element={<Integrate />} />
+        <Route
+          path="/widget/:botId"
           element={
             <Widget />
-          } 
+          }
         />
         <Route
           path="/"
