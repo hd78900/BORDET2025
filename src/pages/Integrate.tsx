@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Copy, Check, Code, MessageSquare, Monitor, Smartphone, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Copy, Check, Code, MessageSquare, Monitor, Smartphone, ExternalLink } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const WIDGET_ORIGIN = 'https://chatbordet.netlify.app';
@@ -13,33 +13,19 @@ const INTEGRATION_CODE = `<script>
   })();
 </script>`;
 
-interface WidgetSettings {
-  title: string;
-  welcome_message: string;
-}
-
 export default function Integrate() {
   const [copied, setCopied] = useState(false);
-  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop');
-  const [settings, setSettings] = useState<WidgetSettings>({
-    title: 'Assistant Bordet',
-    welcome_message: 'Comment puis-je vous aider ?'
-  });
+  const [widgetTitle, setWidgetTitle] = useState('Assistant Bordet');
 
   useEffect(() => {
     supabase
       .from('widget_settings')
-      .select('title, welcome_message')
+      .select('title')
       .eq('id', 1)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) {
-          setSettings({
-            title: data.title || 'Assistant Bordet',
-            welcome_message: data.welcome_message || 'Comment puis-je vous aider ?'
-          });
-        }
+        if (data?.title) setWidgetTitle(data.title);
       });
   }, []);
 
@@ -53,49 +39,10 @@ export default function Integrate() {
     }
   };
 
-  const faqs = [
-    {
-      q: 'Le widget ralentit-il mon site ?',
-      a: 'Non. Le script est charge de maniere asynchrone et ne bloque pas le rendu de votre page. Le widget ne se charge qu\'apres le chargement complet de votre site.'
-    },
-    {
-      q: 'Le widget est-il responsive ?',
-      a: 'Oui. Le widget s\'adapte automatiquement aux ecrans mobiles et desktop. Sur mobile, il s\'ouvre en plein ecran pour une meilleure experience utilisateur.'
-    },
-    {
-      q: 'Puis-je personnaliser l\'apparence du widget ?',
-      a: 'Le titre et le message de bienvenue sont configurables depuis le tableau de bord d\'administration. Les couleurs et le positionnement sont optimises pour s\'integrer sur tout type de site.'
-    },
-    {
-      q: 'Le widget fonctionne-t-il sur tous les navigateurs ?',
-      a: 'Oui. Le widget est compatible avec tous les navigateurs modernes : Chrome, Firefox, Safari, Edge, et leurs equivalents mobiles.'
-    },
-    {
-      q: 'Comment mettre a jour le widget ?',
-      a: 'Le widget se met a jour automatiquement. Le parametre cache-buster dans le code d\'integration garantit que vos visiteurs utilisent toujours la derniere version.'
-    },
-    {
-      q: 'Le widget est-il securise ?',
-      a: 'Oui. Le widget s\'execute dans un iframe isole (sandbox) avec des origines validees. Aucune donnee sensible de votre site n\'est accessible par le widget.'
-    }
-  ];
-
   const steps = [
-    {
-      num: '1',
-      title: 'Copiez le code',
-      desc: 'Copiez le snippet d\'integration ci-dessous.'
-    },
-    {
-      num: '2',
-      title: 'Collez dans votre site',
-      desc: 'Ajoutez le code juste avant la balise fermante </body> de votre page HTML.'
-    },
-    {
-      num: '3',
-      title: 'C\'est pret',
-      desc: 'Le widget apparait automatiquement en bas a droite de votre site.'
-    }
+    { num: '1', title: 'Copiez le code', desc: 'Copiez le snippet ci-dessous.' },
+    { num: '2', title: 'Collez dans votre site', desc: 'Ajoutez-le juste avant la balise fermante </body>.' },
+    { num: '3', title: "C'est pret", desc: 'Le widget apparait en bas a droite de votre site.' }
   ];
 
   return (
@@ -107,9 +54,9 @@ export default function Integrate() {
               <MessageSquare className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Integrer l'Assistant Bordet</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Integrer {widgetTitle}</h1>
               <p className="text-sm text-gray-500 mt-0.5">
-                Ajoutez l'assistant intelligent a votre site en quelques secondes
+                Ajoutez l'assistant a votre site en quelques secondes
               </p>
             </div>
           </div>
@@ -122,7 +69,7 @@ export default function Integrate() {
           <h2 className="text-lg font-semibold text-gray-900 mb-6">Installation en 3 etapes</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {steps.map((step) => (
-              <div key={step.num} className="relative bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-shadow">
+              <div key={step.num} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-shadow">
                 <div className="w-8 h-8 bg-red-950 text-white rounded-lg flex items-center justify-center text-sm font-bold mb-4">
                   {step.num}
                 </div>
@@ -134,11 +81,9 @@ export default function Integrate() {
         </section>
 
         <section>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Code className="h-5 w-5 text-gray-500" />
-              <h2 className="text-lg font-semibold text-gray-900">Code d'integration</h2>
-            </div>
+          <div className="flex items-center gap-2 mb-4">
+            <Code className="h-5 w-5 text-gray-500" />
+            <h2 className="text-lg font-semibold text-gray-900">Code d'integration</h2>
           </div>
           <div className="bg-gray-900 rounded-xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 bg-gray-800 border-b border-gray-700">
@@ -208,7 +153,7 @@ export default function Integrate() {
 
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Apercu du widget</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Apercu en situation reelle</h2>
             <div className="flex items-center bg-gray-200 rounded-lg p-0.5">
               <button
                 onClick={() => setPreviewDevice('desktop')}
@@ -250,11 +195,11 @@ export default function Integrate() {
             </div>
 
             <div
-              className={`relative bg-gradient-to-br from-gray-50 to-gray-100 transition-all duration-300 mx-auto ${
-                previewDevice === 'desktop' ? 'w-full h-[500px]' : 'w-[375px] h-[667px]'
+              className={`relative transition-all duration-300 mx-auto ${
+                previewDevice === 'desktop' ? 'w-full h-[550px]' : 'w-[375px] h-[667px]'
               }`}
             >
-              <div className="absolute inset-0 p-8">
+              <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-gray-100 p-8">
                 <div className="space-y-3">
                   <div className="h-6 bg-gray-200 rounded w-3/4"></div>
                   <div className="h-4 bg-gray-200 rounded w-full"></div>
@@ -266,20 +211,21 @@ export default function Integrate() {
                 </div>
               </div>
 
-              <div className="absolute bottom-5 right-5 flex flex-col items-end gap-2">
-                <div className="bg-white rounded-xl shadow-lg border border-gray-200 px-4 py-2.5 max-w-[220px] animate-fade-in">
-                  <p className="text-sm text-gray-700">{settings.welcome_message}</p>
-                  <div className="absolute -bottom-1.5 right-6 w-3 h-3 bg-white border-b border-r border-gray-200 transform rotate-45"></div>
-                </div>
-
-                <div className="w-14 h-14 bg-red-950 rounded-full flex items-center justify-center shadow-lg cursor-pointer hover:scale-105 transition-transform">
-                  <MessageSquare className="h-6 w-6 text-white" />
-                </div>
-              </div>
+              <iframe
+                src={`${WIDGET_ORIGIN}/widget/bot1`}
+                className="absolute bottom-0 right-0 border-none"
+                style={{
+                  width: '380px',
+                  height: '520px',
+                  pointerEvents: 'auto'
+                }}
+                allow="clipboard-read; clipboard-write"
+                title="Widget preview"
+              />
             </div>
           </div>
           <p className="text-xs text-gray-500 mt-2 text-center">
-            Le widget apparait en bas a droite et affiche le message : "{settings.welcome_message}"
+            Cliquez sur le widget pour interagir avec lui -- c'est une version fonctionnelle.
           </p>
         </section>
 
@@ -342,32 +288,6 @@ export default function Integrate() {
           </div>
         </section>
 
-        <section>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Questions frequentes</h2>
-          <div className="space-y-2">
-            {faqs.map((faq, i) => (
-              <div key={i} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <button
-                  onClick={() => setExpandedFaq(expandedFaq === i ? null : i)}
-                  className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50 transition-colors"
-                >
-                  <span className="font-medium text-gray-900 text-sm">{faq.q}</span>
-                  {expandedFaq === i ? (
-                    <ChevronUp className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                  )}
-                </button>
-                {expandedFaq === i && (
-                  <div className="px-5 pb-4">
-                    <p className="text-sm text-gray-600 leading-relaxed">{faq.a}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-
         <section className="bg-red-950 rounded-xl p-8 text-center">
           <h2 className="text-xl font-bold text-white mb-2">Besoin d'aide ?</h2>
           <p className="text-red-200 text-sm mb-5">
@@ -387,7 +307,7 @@ export default function Integrate() {
       <footer className="border-t border-gray-200 bg-white mt-12">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <p className="text-xs text-gray-400 text-center">
-            Assistant Bordet &mdash; Widget d'assistance intelligent
+            {widgetTitle} &mdash; Widget d'assistance intelligent
           </p>
         </div>
       </footer>
