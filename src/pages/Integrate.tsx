@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Copy, Check, Code, MessageSquare, Monitor, Smartphone, ExternalLink } from 'lucide-react';
+import { Copy, Check, Code, MessageSquare, Monitor, Smartphone } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import WidgetCore from '../components/WidgetCore';
 
@@ -281,19 +281,6 @@ export default function Integrate() {
           </div>
         </section>
 
-        <section className="bg-red-950 rounded-xl p-8 text-center">
-          <h2 className="text-xl font-bold text-white mb-2">Besoin d'aide ?</h2>
-          <p className="text-red-200 text-sm mb-5">
-            Contactez l'equipe technique pour toute question concernant l'integration.
-          </p>
-          <a
-            href="mailto:support@bordet.fr"
-            className="inline-flex items-center gap-2 bg-white text-red-950 px-5 py-2.5 rounded-lg font-medium text-sm hover:bg-red-50 transition-colors"
-          >
-            <ExternalLink className="h-4 w-4" />
-            Contacter le support
-          </a>
-        </section>
 
       </main>
 
