@@ -55,10 +55,7 @@ export default function Integrate() {
               <MessageSquare className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Integrer {widgetTitle}</h1>
-              <p className="text-sm text-gray-500 mt-0.5">
-                Ajoutez l'assistant a votre site en quelques secondes
-              </p>
+              <h1 className="text-2xl font-bold text-gray-900">Integration de l'agent Bordet</h1>
             </div>
           </div>
         </div>
