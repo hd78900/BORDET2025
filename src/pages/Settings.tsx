@@ -8,9 +8,9 @@ import PublicWidget from '../components/PublicWidget';
 import { supabase } from '../lib/supabase';
 
 const MISTRAL_MODELS = [
-  { id: 'mistral-tiny', name: 'Tiny', description: 'Rapide et économique' },
-  { id: 'mistral-small', name: 'Small', description: 'Bon équilibre performance/coût' },
-  { id: 'mistral-medium', name: 'Medium', description: 'Performances avancées' },
+  { id: 'open-mistral-nemo', name: 'Nemo', description: 'Rapide et economique' },
+  { id: 'mistral-small-latest', name: 'Small', description: 'Bon equilibre performance/cout' },
+  { id: 'mistral-medium-latest', name: 'Medium', description: 'Performances avancees' },
   { id: 'mistral-large-latest', name: 'Large', description: 'Meilleures performances' },
 ];
 

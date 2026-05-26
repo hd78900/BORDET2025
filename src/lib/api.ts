@@ -1,12 +1,12 @@
-import MistralClient from '@mistralai/mistralai';
 import { Pinecone } from '@pinecone-database/pinecone';
 import { useConfigStore } from '../store/configStore';
 import { supabase } from './supabase';
 import { chatbots } from '../config/chatbots';
 
-const mistralClient = new MistralClient(import.meta.env.VITE_MISTRAL_API_KEY);
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const MISTRAL_PROXY_URL = `${SUPABASE_URL}/functions/v1/mistral-proxy`;
 
-// Initialize Pinecone with minimal required configuration
 const pc = new Pinecone({
   apiKey: import.meta.env.VITE_PINECONE_API_KEY
 });
@@ -16,6 +16,52 @@ interface PineconeMetadata {
   url?: string;
   title?: string;
   source?: string;
+}
+
+async function getAuthHeaders() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return {
+    'Authorization': `Bearer ${session?.access_token || SUPABASE_ANON_KEY}`,
+    'Content-Type': 'application/json',
+    'apikey': SUPABASE_ANON_KEY,
+  };
+}
+
+async function mistralChat(model: string, messages: Array<{ role: string; content: string }>, temperature: number): Promise<string> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${MISTRAL_PROXY_URL}/chat`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ model, messages, temperature }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(err.error?.message || err.error || `Mistral API error: ${res.status}`);
+  }
+
+  const data = await res.json();
+  return data.choices[0].message.content;
+}
+
+async function mistralEmbeddings(input: string): Promise<number[]> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${MISTRAL_PROXY_URL}/embeddings`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ input }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(err.error?.message || err.error || `Embeddings API error: ${res.status}`);
+  }
+
+  const data = await res.json();
+  if (!data?.data?.[0]?.embedding) {
+    throw new Error('Failed to generate embeddings');
+  }
+  return data.data[0].embedding;
 }
 
 function extractProductsFromContext(matches: Array<{ metadata?: PineconeMetadata }>): Map<string, { name: string, url: string }> {
@@ -89,7 +135,6 @@ export async function getChatResponse(message: string, indexName: string, userId
   try {
     const { model, testMode, temperature, systemPrompt, contextRules } = useConfigStore.getState();
 
-    // Save user message
     if (userId && botId) {
       try {
         const { data: lastMessage } = await supabase
@@ -119,78 +164,50 @@ export async function getChatResponse(message: string, indexName: string, userId
     }
 
     if (testMode) {
-      const chatResponse = await mistralClient.chat({
-        model: model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: message }
-        ],
-        temperature: temperature
-      });
-      response = chatResponse.choices[0].message.content;
+      response = await mistralChat(model, [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message }
+      ], temperature);
     } else {
       const index = pc.index(indexName);
 
-      try {
-        // Get embeddings
-        const embeddings = await mistralClient.embeddings({
-          model: "mistral-embed",
-          input: message,
-        });
+      const embedding = await mistralEmbeddings(message);
 
-        if (!embeddings?.data?.[0]?.embedding) {
-          throw new Error('Failed to generate embeddings');
-        }
+      const queryResponse = await index.query({
+        vector: embedding,
+        topK: 20,
+        includeMetadata: true
+      });
 
-        // Query Pinecone with proper configuration
-        const queryParams = {
-          vector: embeddings.data[0].embedding,
-          topK: 20,
-          includeMetadata: true
-        };
+      if (!queryResponse?.matches) {
+        throw new Error('No matches found in vector database');
+      }
 
-        const queryResponse = await index.query(queryParams);
+      products = extractProductsFromContext(queryResponse.matches);
 
-        if (!queryResponse?.matches) {
-          throw new Error('No matches found in vector database');
-        }
+      const vectorContext = queryResponse.matches
+        .map(match => match.metadata?.text)
+        .filter(Boolean)
+        .join('\n\n');
 
-        products = extractProductsFromContext(queryResponse.matches);
+      let conversationContext = '';
+      if (userId && botId) {
+        conversationContext = await getConversationContext(userId, botId, conversationTimestamp);
+      }
 
-        const vectorContext = queryResponse.matches
-          .map(match => match.metadata?.text)
-          .filter(Boolean)
-          .join('\n\n');
+      const botSpecificRules = contextRules[botId || ''] || '';
+      const fullSystemPrompt = `${systemPrompt}\n\n${botSpecificRules}\n\nHistorique de la conversation:\n${conversationContext}\n\nContexte de la base de connaissances:\n${vectorContext}`;
 
-        let conversationContext = '';
-        if (userId && botId) {
-          conversationContext = await getConversationContext(userId, botId, conversationTimestamp);
-        }
+      response = await mistralChat(model, [
+        { role: "system", content: fullSystemPrompt },
+        { role: "user", content: message }
+      ], temperature);
 
-        const botSpecificRules = contextRules[botId || ''] || '';
-        const fullSystemPrompt = `${systemPrompt}\n\n${botSpecificRules}\n\nHistorique de la conversation:\n${conversationContext}\n\nContexte de la base de connaissances:\n${vectorContext}`;
-
-        const chatResponse = await mistralClient.chat({
-          model: model,
-          messages: [
-            { role: "system", content: fullSystemPrompt },
-            { role: "user", content: message }
-          ],
-          temperature: temperature
-        });
-
-        response = chatResponse.choices[0].message.content;
-
-        if (botId === 'bot1' && products) {
-          response = enforceProductUrls(response, products);
-        }
-      } catch (error) {
-        console.error('Vector search error:', error);
-        throw new Error('Failed to search vector database. Please try again.');
+      if (botId === 'bot1' && products) {
+        response = enforceProductUrls(response, products);
       }
     }
 
-    // Save assistant response
     if (userId && botId) {
       try {
         await supabase.from('chat_messages').insert({
@@ -252,9 +269,9 @@ export async function saveCurrentConversation(userId: string, botId: string) {
     const timestamp = Date.now();
     const { error } = await supabase
       .from('chat_messages')
-      .update({ 
+      .update({
         is_saved: true,
-        conversation_timestamp: timestamp 
+        conversation_timestamp: timestamp
       })
       .eq('user_id', userId)
       .eq('bot_id', botId)
@@ -300,7 +317,7 @@ export async function checkPineconeStatus(indexName: string) {
   try {
     const index = pc.index(indexName);
     const stats = await index.describeIndexStats();
-    
+
     return {
       status: 'ready',
       vectorCount: stats.totalVectorCount,
@@ -308,8 +325,8 @@ export async function checkPineconeStatus(indexName: string) {
     };
   } catch (error) {
     console.error('Error checking Pinecone status:', error);
-    return { 
-      status: 'error', 
+    return {
+      status: 'error',
       error: error instanceof Error ? error.message : 'Unknown error',
       vectorCount: 0,
       dimension: 0
@@ -319,13 +336,15 @@ export async function checkPineconeStatus(indexName: string) {
 
 export async function checkMistralStatus() {
   try {
-    await mistralClient.listModels();
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${MISTRAL_PROXY_URL}/models`, { headers });
+    if (!res.ok) throw new Error(`Status: ${res.status}`);
     return { status: 'operational' };
   } catch (error) {
     console.error('Error checking Mistral status:', error);
-    return { 
-      status: 'error', 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    return {
+      status: 'error',
+      error: error instanceof Error ? error.message : 'Unknown error'
     };
   }
 }

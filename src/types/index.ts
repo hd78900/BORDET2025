@@ -28,7 +28,7 @@ export interface ChatState {
   clearMessages: (botId?: string) => void;
 }
 
-export type MistralModel = 'mistral-tiny' | 'mistral-small' | 'mistral-medium' | 'mistral-large-latest';
+export type MistralModel = 'mistral-small-latest' | 'mistral-medium-latest' | 'mistral-large-latest' | 'open-mistral-nemo';
 
 export interface ConfigState {
   model: MistralModel;

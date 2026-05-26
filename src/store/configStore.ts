@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { ConfigState, MistralModel } from '../types';
 
 const initialState = {
-  model: 'mistral-medium' as MistralModel,
+  model: 'mistral-small-latest' as MistralModel,
   testMode: false,
   widgetTitle: 'Assistant Bordet',
   widgetWelcomeMessage: 'Comment puis-je vous aider ?',
