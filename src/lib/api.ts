@@ -7,9 +7,14 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const MISTRAL_PROXY_URL = `${SUPABASE_URL}/functions/v1/mistral-proxy`;
 
-const pc = new Pinecone({
-  apiKey: import.meta.env.VITE_PINECONE_API_KEY
-});
+let pc: Pinecone | null = null;
+
+function getPineconeClient(): Pinecone {
+  if (!pc) {
+    pc = new Pinecone({ apiKey: import.meta.env.VITE_PINECONE_API_KEY });
+  }
+  return pc;
+}
 
 interface PineconeMetadata {
   text: string;
@@ -169,7 +174,7 @@ export async function getChatResponse(message: string, indexName: string, userId
         { role: "user", content: message }
       ], temperature);
     } else {
-      const index = pc.index(indexName);
+      const index = getPineconeClient().index(indexName);
 
       const embedding = await mistralEmbeddings(message);
 
@@ -315,7 +320,7 @@ export async function startNewChat(userId: string, botId: string) {
 
 export async function checkPineconeStatus(indexName: string) {
   try {
-    const index = pc.index(indexName);
+    const index = getPineconeClient().index(indexName);
     const stats = await index.describeIndexStats();
 
     return {
