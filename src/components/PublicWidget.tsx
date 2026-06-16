@@ -39,7 +39,7 @@ export default function PublicWidget() {
     setLoading(true);
 
     try {
-      const response = await getChatResponse(input, 'bordet-siteweb');
+      const response = await getChatResponse(input, 'bot1');
       
       const assistantMessage: ChatMessage = {
         role: 'assistant',
