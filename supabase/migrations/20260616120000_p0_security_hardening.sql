@@ -15,14 +15,14 @@ CREATE OR REPLACE FUNCTION public.match_documents(
 )
 RETURNS TABLE (id bigint, content text, metadata jsonb, similarity float)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
-  SELECT d.id, d.content, d.metadata, 1 - (d.embedding <=> query_embedding) AS similarity
+  SELECT d.id, d.content, d.metadata, 1 - (d.embedding OPERATOR(public.<=>) query_embedding) AS similarity
   FROM public.documents d
   WHERE d.bot_id = coalesce(filter_bot_id, 'bot1')
     AND (
       coalesce(d.metadata->>'source_type','') <> 'book'
       OR coalesce(current_setting('request.jwt.claims', true)::jsonb->>'role','anon') = 'authenticated'
     )
-  ORDER BY d.embedding <=> query_embedding
+  ORDER BY d.embedding OPERATOR(public.<=>) query_embedding
   LIMIT LEAST(GREATEST(match_count, 1), 8);
 $$;
 ALTER FUNCTION public.match_documents(vector, int, text) OWNER TO postgres;
