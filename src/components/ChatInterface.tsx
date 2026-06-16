@@ -260,11 +260,7 @@ export default function ChatInterface() {
           {(!messagesByBot[selectedBot] || messagesByBot[selectedBot].length === 0) && (
             <div className="text-center text-gray-500 mt-8">
               <p className="text-lg font-medium mb-4">
-                {selectedBot === 'bot1' 
-                  ? "Cet assistant utilise exclusivement la base de connaissance du site bordet.fr"
-                  : selectedBot === 'bot2'
-                  ? "Cet assistant utilise une base de connaissance spécialisée web & littéraire."
-                  : "Cet assistant utilise la base de connaissance whatsapp"}
+                Cet assistant utilise exclusivement la base de connaissance du site bordet.fr
               </p>
               <p className="text-sm">Posez votre question pour commencer la conversation.</p>
             </div>

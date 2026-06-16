@@ -56,7 +56,7 @@ export default function Login() {
       setIsAdmin(profileData.is_admin);
 
       if (profileData.is_admin) {
-        setAccessibleBots(['bot1', 'bot2', 'bot3']);
+        setAccessibleBots(['bot1']);
       } else {
         const { data: accessData } = await supabase
           .from('user_bot_access')

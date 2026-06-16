@@ -5,7 +5,7 @@ export default function FAQ() {
   const faqs = [
     {
       question: "Qu'est-ce que Les assistants Bordet ?",
-      answer: "Les assistants Bordet sont une suite d'agents conversationnels spécialisés, chacun ayant accès à une base de connaissances spécifique :\n\n- L'Assistant bordet.fr utilise la base de connaissance du site bordet.fr\n- L'Assistant marketing utilise une base spécialisée web & littéraire\n- L'Assistant équipes utilise la base de connaissance whatsapp"
+      answer: "L'Assistant bordet.fr est un agent conversationnel spécialisé qui utilise exclusivement la base de connaissance du site bordet.fr."
     },
     {
       question: "Comment utiliser les assistants ?",

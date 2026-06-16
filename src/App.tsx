@@ -41,7 +41,7 @@ function App() {
               setIsAdmin(profile.is_admin);
 
               if (profile.is_admin) {
-                setAccessibleBots(['bot1', 'bot2', 'bot3']);
+                setAccessibleBots(['bot1']);
               } else {
                 supabase
                   .from('user_bot_access')
