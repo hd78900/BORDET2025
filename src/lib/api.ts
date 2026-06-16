@@ -123,6 +123,36 @@ function enforceProductUrls(response: string, products: Map<string, { name: stri
   return modifiedResponse;
 }
 
+const normUrlText = (s: string) =>
+  s.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+
+// Garantie 100% : toute URL affichée doit provenir d'un chunk réellement récupéré.
+// Sinon elle est réécrite via le nom du produit/article, sinon l'URL est supprimée.
+function sanitizeUrls(response: string, matches: DocumentMatch[]): string {
+  const valid = new Set<string>();
+  const nameToUrl = new Map<string, string>();
+  for (const m of matches) {
+    const url = m.metadata?.url;
+    const title = m.metadata?.title;
+    if (url && url.startsWith('https://www.bordet.fr/')) {
+      valid.add(url);
+      if (title) nameToUrl.set(normUrlText(title), url);
+    }
+  }
+  let out = response.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (full, text, url) => {
+    if (valid.has(url)) return full;
+    const nt = normUrlText(text);
+    for (const [name, u] of nameToUrl) {
+      if (name && (nt === name || nt.includes(name) || name.includes(nt))) {
+        return `[${text}](${u})`;
+      }
+    }
+    return text; // lien fabriqué -> on garde le libellé, on retire l'URL
+  });
+  out = out.replace(/(?<![(\]])https?:\/\/[^\s)]+/g, (url) => (valid.has(url) ? url : ''));
+  return out;
+}
+
 async function getConversationContext(userId: string, botId: string, currentTimestamp: number): Promise<string> {
   try {
     const { data: messages, error } = await supabase
@@ -214,6 +244,9 @@ export async function getChatResponse(message: string, botId: string, userId?: s
       if (activeBotId === 'bot1' && products) {
         response = enforceProductUrls(response, products);
       }
+
+      // Garantie 100% : aucune URL hors des chunks récupérés ne survit
+      response = sanitizeUrls(response, matches);
     }
 
     if (userId && activeBotId) {
