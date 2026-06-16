@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Send, X, Minimize2, Maximize2, Copy, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { getChatResponse } from '../lib/api';
@@ -22,6 +22,10 @@ export default function PublicWidget() {
   const [loading, setLoading] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [showWelcomeBubble, setShowWelcomeBubble] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, loading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,24 +97,24 @@ export default function PublicWidget() {
   const components = {
     // Titres
     h1: ({ node, ...props }) => (
-      <h1 {...props} className="text-2xl font-bold mt-6 mb-4" />
+      <h1 {...props} className="text-xl font-bold mt-4 mb-3" />
     ),
     h2: ({ node, ...props }) => (
-      <h2 {...props} className="text-xl font-bold mt-5 mb-3" />
+      <h2 {...props} className="text-lg font-bold mt-3 mb-2" />
     ),
     h3: ({ node, ...props }) => (
-      <h3 {...props} className="text-lg font-bold mt-4 mb-2" />
+      <h3 {...props} className="text-base font-bold mt-2 mb-1" />
     ),
     // Paragraphes
     p: ({ node, ...props }) => (
-      <p {...props} className="my-4 leading-relaxed" />
+      <p {...props} className="my-2 leading-relaxed" />
     ),
     // Listes
     ul: ({ node, ...props }) => (
-      <ul {...props} className="my-4 ml-6 list-disc space-y-2" />
+      <ul {...props} className="my-2 ml-4 list-disc space-y-1" />
     ),
     ol: ({ node, ...props }) => (
-      <ol {...props} className="my-4 ml-6 list-decimal space-y-2" />
+      <ol {...props} className="my-2 ml-4 list-decimal space-y-1" />
     ),
     li: ({ node, ...props }) => (
       <li {...props} className="my-1" />
@@ -169,7 +173,7 @@ export default function PublicWidget() {
         </div>
       ) : (
         <div
-          className={`bg-white rounded-lg shadow-xl transition-all duration-300 ${
+          className={`bg-white rounded-lg shadow-xl transition-all duration-300 flex flex-col ${
             isMinimized ? 'w-auto h-auto' : 'w-[400px] h-[600px]'
           }`}
         >
@@ -178,9 +182,9 @@ export default function PublicWidget() {
               <img 
                 src="https://i.postimg.cc/mg6hR2HV/raymond-portrait.png" 
                 alt="Assistant Icon" 
-                className="w-16 h-16 rounded-full object-cover shadow-md"
+                className="w-11 h-11 rounded-full object-cover shadow-md"
               />
-              <h3 className="font-semibold text-lg">{widgetTitle}</h3>
+              <h3 className="font-semibold text-base">{widgetTitle}</h3>
             </div>
             <div className="flex items-center space-x-2">
               <button
@@ -200,8 +204,8 @@ export default function PublicWidget() {
             </div>
           </div>
           {!isMinimized && (
-            <div className="flex flex-col h-[calc(100%-72px)]">
-              <div className="flex-1 overflow-y-auto p-4 space-y-8">
+            <div className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
                 {showWelcomeBubble && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                     <div className="flex items-start gap-3">
@@ -245,7 +249,7 @@ export default function PublicWidget() {
                     className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[80%] rounded-lg px-4 py-3 ${
+                      className={`max-w-[85%] rounded-lg px-3 py-2 ${
                         message.role === 'user'
                           ? 'bg-red-950 text-white'
                           : 'bg-gray-100'
@@ -292,15 +296,16 @@ export default function PublicWidget() {
                     </div>
                   </div>
                 )}
+                <div ref={messagesEndRef} />
               </div>
               <div className="border-t p-4">
-                <form onSubmit={handleSubmit} className="flex gap-4">
+                <form onSubmit={handleSubmit} className="flex gap-2">
                   <input
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="Tapez votre message..."
-                    className="flex-1 rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-950 focus:border-transparent"
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-950 focus:border-transparent"
                   />
                   <button
                     type="submit"

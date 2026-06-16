@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Send, X, Minimize2, Maximize2, Copy, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { getChatResponse } from '../lib/api';
@@ -18,6 +18,10 @@ export default function WidgetCore({ botId, embedded = false }: WidgetCoreProps)
   const [loading, setLoading] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [showWelcomeBubble, setShowWelcomeBubble] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, loading]);
 
   const currentBot = chatbots.find(bot => bot.id === botId);
 
@@ -167,7 +171,7 @@ export default function WidgetCore({ botId, embedded = false }: WidgetCoreProps)
   return (
     <div className={embedded ? 'w-full h-full' : 'w-full h-full'} style={{ pointerEvents: 'auto' }}>
       <div
-        className={`bg-white rounded-lg shadow-xl transition-all duration-300 ${positionClasses} ${
+        className={`bg-white rounded-lg shadow-xl transition-all duration-300 flex flex-col ${positionClasses} ${
           isMinimized ? 'w-auto h-auto' : embedded ? 'w-full h-full' : 'w-[420px] h-[620px]'
         }`}
         style={{
@@ -199,8 +203,8 @@ export default function WidgetCore({ botId, embedded = false }: WidgetCoreProps)
           </div>
         </div>
         {!isMinimized && (
-          <div className="flex flex-col h-[calc(100%-72px)]">
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
               {showWelcomeBubble && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                   <div className="flex items-start gap-3">
@@ -259,6 +263,7 @@ export default function WidgetCore({ botId, embedded = false }: WidgetCoreProps)
                   </div>
                 </div>
               )}
+              <div ref={messagesEndRef} />
             </div>
             <div className="border-t p-4">
               <form onSubmit={handleSubmit} className="flex gap-2">
