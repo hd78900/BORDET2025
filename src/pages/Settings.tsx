@@ -3,16 +3,8 @@ import { chatbots } from '../config/chatbots';
 import { checkVectorDbStatus, checkMistralStatus } from '../lib/api';
 import { RefreshCw, Save, CheckCircle2, Sliders, ExternalLink, Code, Copy, Check } from 'lucide-react';
 import { useConfigStore } from '../store/configStore';
-import type { MistralModel } from '../types';
 import PublicWidget from '../components/PublicWidget';
 import { supabase } from '../lib/supabase';
-
-const MISTRAL_MODELS = [
-  { id: 'open-mistral-nemo', name: 'Nemo', description: 'Rapide et economique' },
-  { id: 'mistral-small-latest', name: 'Small', description: 'Bon equilibre performance/cout' },
-  { id: 'mistral-medium-latest', name: 'Medium', description: 'Performances avancees' },
-  { id: 'mistral-large-latest', name: 'Large', description: 'Meilleures performances' },
-];
 
 export default function Settings() {
   const {
@@ -224,21 +216,9 @@ export default function Settings() {
           </div>
 
           <div className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {MISTRAL_MODELS.map((mistralModel) => (
-                <button
-                  key={mistralModel.id}
-                  onClick={() => useConfigStore.setState({ model: mistralModel.id as MistralModel })}
-                  className={`p-4 rounded-lg border-2 transition-all ${
-                    model === mistralModel.id
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-blue-200'
-                  }`}
-                >
-                  <h4 className="font-semibold">{mistralModel.name}</h4>
-                  <p className="text-sm text-gray-600">{mistralModel.description}</p>
-                </button>
-              ))}
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+              Modèle automatique : <strong>mistral-small</strong> pour le chatbot (Vue client),
+              <strong> mistral-large</strong> pour le mode « Contenu marketing ».
             </div>
 
             <div className="space-y-6">

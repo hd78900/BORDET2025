@@ -26,12 +26,12 @@ async function getAuthHeaders() {
   };
 }
 
-async function mistralChat(model: string, messages: Array<{ role: string; content: string }>, temperature: number): Promise<string> {
+async function mistralChat(messages: Array<{ role: string; content: string }>, temperature: number, mode: 'client' | 'marketing' = 'client'): Promise<string> {
   const headers = await getAuthHeaders();
   const res = await fetch(`${MISTRAL_PROXY_URL}/chat`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ model, messages, temperature }),
+    body: JSON.stringify({ messages, temperature, mode }),
   });
 
   if (!res.ok) {
@@ -177,7 +177,7 @@ export async function getChatResponse(message: string, botId: string, userId?: s
   const activeBotId = currentBotId || botId;
 
   try {
-    const { model, testMode, temperature, systemPrompt, marketingPrompt, contextRules } = useConfigStore.getState();
+    const { testMode, temperature, systemPrompt, marketingPrompt, contextRules } = useConfigStore.getState();
 
     if (userId && activeBotId) {
       try {
@@ -208,10 +208,10 @@ export async function getChatResponse(message: string, botId: string, userId?: s
     }
 
     if (testMode) {
-      response = await mistralChat(model, [
+      response = await mistralChat([
         { role: "system", content: chatMode === 'marketing' ? marketingPrompt : systemPrompt },
         { role: "user", content: message }
-      ], temperature);
+      ], temperature, chatMode);
     } else {
       const embedding = await mistralEmbeddings(message);
 
@@ -238,10 +238,10 @@ export async function getChatResponse(message: string, botId: string, userId?: s
         ? `${marketingPrompt}\n\nHistorique de la conversation:\n${conversationContext}\n\nContexte de la base de connaissances:\n${vectorContext}`
         : `${systemPrompt}\n\n${botSpecificRules}\n\nHistorique de la conversation:\n${conversationContext}\n\nContexte de la base de connaissances:\n${vectorContext}`;
 
-      response = await mistralChat(model, [
+      response = await mistralChat([
         { role: "system", content: fullSystemPrompt },
         { role: "user", content: message }
-      ], temperature);
+      ], temperature, chatMode);
 
       if (activeBotId === 'bot1' && products) {
         response = enforceProductUrls(response, products);

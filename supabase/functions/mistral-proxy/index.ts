@@ -40,6 +40,19 @@ function corsFor(origin: string | null) {
   };
 }
 
+// Rôle de l'appelant depuis le JWT (signature déjà validée par verify_jwt de la plateforme).
+// Le plafond de coût borne la dépense même si ce gate était contourné.
+function callerRole(req: Request): string {
+  try {
+    const tok = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+    const payload = tok.split(".")[1];
+    if (!payload) return "anon";
+    let b64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    while (b64.length % 4) b64 += "=";
+    return JSON.parse(atob(b64))?.role || "anon";
+  } catch { return "anon"; }
+}
+
 function admin() {
   return createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -101,17 +114,23 @@ Deno.serve(async (req: Request) => {
     if (total > MAX_TOTAL_CHARS) return json({ error: "messages too long" }, 413);
     const temperature = Math.min(Math.max(Number(body?.temperature) || 0.3, 0), 0.7);
 
-    if (!(await reserve(RESERVE_CHAT)))
+    // large UNIQUEMENT pour le mode marketing d'un admin authentifié ; widget public (anon) -> toujours small.
+    const marketing = body?.mode === "marketing" && callerRole(req) === "authenticated";
+    const model = marketing ? "mistral-large-latest" : CHAT_MODEL;
+    const maxTokens = marketing ? 2000 : MAX_TOKENS;
+    const reserveN = marketing ? 8000 : RESERVE_CHAT;
+
+    if (!(await reserve(reserveN)))
       return json({ error: "Service très demandé, merci de réessayer plus tard." }, 503);
 
     const res = await fetch(`${MISTRAL_API_BASE}/chat/completions`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: CHAT_MODEL, messages, temperature, max_tokens: MAX_TOKENS, stream: false }),
+      body: JSON.stringify({ model, messages, temperature, max_tokens: maxTokens, stream: false }),
     });
     const data = await res.json().catch(() => null);
-    const used = res.ok && typeof data?.usage?.total_tokens === "number" ? data.usage.total_tokens : RESERVE_CHAT;
-    await reconcile(used, RESERVE_CHAT);   // fail-closed : si erreur upstream, on garde la réservation
+    const used = res.ok && typeof data?.usage?.total_tokens === "number" ? data.usage.total_tokens : reserveN;
+    await reconcile(used, reserveN);   // fail-closed : si erreur upstream, on garde la réservation
     return json(data ?? { error: "upstream error" }, res.status);
   }
 
