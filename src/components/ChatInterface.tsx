@@ -14,6 +14,7 @@ export default function ChatInterface() {
   const [savedConversations, setSavedConversations] = useState<{[key: string]: ChatMessage[]}>({});
   const [showSidebar, setShowSidebar] = useState(true);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [chatMode, setChatMode] = useState<'client' | 'marketing'>('client');
 
   const loadMessages = async () => {
     if (!user) return;
@@ -83,7 +84,7 @@ export default function ChatInterface() {
     setLoading(true);
 
     try {
-      const response = await getChatResponse(input, selectedBot, user.id, selectedBot);
+      const response = await getChatResponse(input, selectedBot, user.id, selectedBot, chatMode);
       
       const assistantMessage: ChatMessage = {
         role: 'assistant',
@@ -247,6 +248,25 @@ export default function ChatInterface() {
 
       {/* Chat Area */}
       <div className="flex-1 flex flex-col">
+        {/* Switch Vue client / Contenu marketing */}
+        <div className="flex items-center justify-center gap-1 p-2 border-b bg-white">
+          <button
+            onClick={() => setChatMode('client')}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              chatMode === 'client' ? 'bg-red-800 text-white' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Vue client
+          </button>
+          <button
+            onClick={() => setChatMode('marketing')}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              chatMode === 'marketing' ? 'bg-red-800 text-white' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Contenu marketing
+          </button>
+        </div>
         {/* Toggle Sidebar Button */}
         <button
           onClick={() => setShowSidebar(!showSidebar)}

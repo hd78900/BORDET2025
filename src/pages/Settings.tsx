@@ -20,6 +20,7 @@ export default function Settings() {
     testMode,
     temperature,
     systemPrompt,
+    marketingPrompt,
     contextRules,
     widgetTitle,
     widgetWelcomeMessage
@@ -38,6 +39,7 @@ export default function Settings() {
   const [localConfig, setLocalConfig] = useState({
     temperature,
     systemPrompt,
+    marketingPrompt,
     contextRules,
     widgetTitle,
     widgetWelcomeMessage
@@ -48,11 +50,12 @@ export default function Settings() {
     setLocalConfig({
       temperature,
       systemPrompt,
+      marketingPrompt,
       contextRules,
       widgetTitle,
       widgetWelcomeMessage
     });
-  }, [temperature, systemPrompt, contextRules, widgetTitle, widgetWelcomeMessage]);
+  }, [temperature, systemPrompt, marketingPrompt, contextRules, widgetTitle, widgetWelcomeMessage]);
 
   const handleSaveConfig = () => {
     setIsSaving(true);
@@ -269,6 +272,19 @@ export default function Settings() {
                     onChange={(e) => setLocalConfig(prev => ({ ...prev, systemPrompt: e.target.value }))}
                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 min-h-[120px]"
                     rows={5}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-lg font-medium text-gray-700 mb-3">
+                    Prompt — Contenu marketing
+                  </label>
+                  <textarea
+                    value={localConfig.marketingPrompt}
+                    onChange={(e) => setLocalConfig(prev => ({ ...prev, marketingPrompt: e.target.value }))}
+                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 min-h-[120px]"
+                    rows={5}
+                    placeholder="Prompt utilisé en mode « Contenu marketing »..."
                   />
                 </div>
 

@@ -25,6 +25,7 @@ const initialState = {
    - **[Nom du Produit](URL)**
    - Aucune URL ne doit être inventée.
 8. Si aucune information pertinente n'est trouvée, indiquez-le clairement.`,
+  marketingPrompt: `Vous êtes un assistant de **rédaction marketing** pour **Bordet** (outillage, ébénisterie, travail du bois). Votre rôle : aider à rédiger des billets de blog et du contenu marketing.\n\nDirectives :\n1. Rédigez en français, ton **expert mais accessible**.\n2. Appuyez-vous EXCLUSIVEMENT sur la base de connaissances fournie (produits, articles, livres Bordet). N'inventez jamais de données, de produits ni d'URLs.\n3. Pour un article de blog : titre accrocheur, introduction, sections avec sous-titres (##, ###), points clés en **gras**, conclusion avec appel à l'action.\n4. Quand vous citez un produit, utilisez son URL réelle issue du contexte, au format **[Nom](URL)**.\n5. Formatage Markdown soigné. Pas de politesse superflue.`,
   responseFormat: 'markdown',
   contextRules: {
     'bot1': `Vous êtes un assistant commercial de **Bordet**. Voici vos règles spécifiques :
@@ -60,6 +61,7 @@ export const useConfigStore = create<ConfigState>()(
       setWidgetWelcomeMessage: (message: string) => set({ widgetWelcomeMessage: message }),
       setTemperature: (temperature: number) => set({ temperature }),
       setSystemPrompt: (prompt: string) => set({ systemPrompt: prompt }),
+      setMarketingPrompt: (prompt: string) => set({ marketingPrompt: prompt }),
       setResponseFormat: (format: string) => set({ responseFormat: format }),
       setContextRules: (botId: string, rules: string) => 
         set((state) => ({

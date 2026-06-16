@@ -170,14 +170,14 @@ async function getConversationContext(userId: string, botId: string, currentTime
   }
 }
 
-export async function getChatResponse(message: string, botId: string, userId?: string, currentBotId?: string) {
+export async function getChatResponse(message: string, botId: string, userId?: string, currentBotId?: string, chatMode: 'client' | 'marketing' = 'client') {
   let conversationTimestamp = Date.now();
   let response: string;
   let products: Map<string, { name: string, url: string }> | undefined;
   const activeBotId = currentBotId || botId;
 
   try {
-    const { model, testMode, temperature, systemPrompt, contextRules } = useConfigStore.getState();
+    const { model, testMode, temperature, systemPrompt, marketingPrompt, contextRules } = useConfigStore.getState();
 
     if (userId && activeBotId) {
       try {
@@ -209,7 +209,7 @@ export async function getChatResponse(message: string, botId: string, userId?: s
 
     if (testMode) {
       response = await mistralChat(model, [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: chatMode === 'marketing' ? marketingPrompt : systemPrompt },
         { role: "user", content: message }
       ], temperature);
     } else {
@@ -234,7 +234,9 @@ export async function getChatResponse(message: string, botId: string, userId?: s
       }
 
       const botSpecificRules = contextRules[activeBotId || ''] || '';
-      const fullSystemPrompt = `${systemPrompt}\n\n${botSpecificRules}\n\nHistorique de la conversation:\n${conversationContext}\n\nContexte de la base de connaissances:\n${vectorContext}`;
+      const fullSystemPrompt = chatMode === 'marketing'
+        ? `${marketingPrompt}\n\nHistorique de la conversation:\n${conversationContext}\n\nContexte de la base de connaissances:\n${vectorContext}`
+        : `${systemPrompt}\n\n${botSpecificRules}\n\nHistorique de la conversation:\n${conversationContext}\n\nContexte de la base de connaissances:\n${vectorContext}`;
 
       response = await mistralChat(model, [
         { role: "system", content: fullSystemPrompt },

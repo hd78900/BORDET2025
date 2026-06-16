@@ -36,6 +36,7 @@ export interface ConfigState {
   widgetWelcomeMessage: string;
   temperature: number;
   systemPrompt: string;
+  marketingPrompt: string;
   responseFormat: string;
   contextRules: Record<string, string>;
   setModel: (model: MistralModel) => void;
@@ -44,6 +45,7 @@ export interface ConfigState {
   setWidgetWelcomeMessage: (message: string) => void;
   setTemperature: (temperature: number) => void;
   setSystemPrompt: (prompt: string) => void;
+  setMarketingPrompt: (prompt: string) => void;
   setResponseFormat: (format: string) => void;
   setContextRules: (botId: string, rules: string) => void;
 }
