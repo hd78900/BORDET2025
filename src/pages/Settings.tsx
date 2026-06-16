@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { chatbots } from '../config/chatbots';
-import { checkPineconeStatus, checkMistralStatus } from '../lib/api';
+import { checkVectorDbStatus, checkMistralStatus } from '../lib/api';
 import { RefreshCw, Save, CheckCircle2, Sliders, ExternalLink, Code, Copy, Check } from 'lucide-react';
 import { useConfigStore } from '../store/configStore';
 import type { MistralModel } from '../types';
@@ -27,7 +27,7 @@ export default function Settings() {
 
   const [stats, setStats] = useState({
     apiStatus: 'Chargement...',
-    pineconeStatus: {},
+    vectorDbStatus: {} as Record<string, any>,
     lastRefresh: new Date(),
     isRefreshing: false
   });
@@ -119,9 +119,9 @@ export default function Settings() {
     setStats(prev => ({ ...prev, isRefreshing: true }));
     try {
       const mistralStatus = await checkMistralStatus();
-      const pineconeStatuses = await Promise.all(
+      const vectorDbStatuses = await Promise.all(
         chatbots.map(async bot => {
-          const status = await checkPineconeStatus(bot.pineconeIndex);
+          const status = await checkVectorDbStatus(bot.id);
           return {
             ...bot,
             status
@@ -131,7 +131,7 @@ export default function Settings() {
 
       setStats({
         apiStatus: mistralStatus.status,
-        pineconeStatus: pineconeStatuses.reduce((acc, curr) => ({
+        vectorDbStatus: vectorDbStatuses.reduce((acc, curr) => ({
           ...acc,
           [curr.id]: curr.status
         }), {}),
@@ -415,7 +415,7 @@ export default function Settings() {
             <h3 className="text-lg font-semibold mb-4">Status des Bases de connaissances</h3>
             <div className="space-y-4">
               {chatbots.map((bot) => {
-                const status = stats.pineconeStatus[bot.id];
+                const status = stats.vectorDbStatus[bot.id];
                 const Icon = bot.icon;
                 const vectorCount = status?.vectorCount;
                 return (
@@ -424,7 +424,7 @@ export default function Settings() {
                       <Icon className="h-6 w-5" />
                       <div>
                         <h4 className="font-medium">{bot.name}</h4>
-                        <p className="text-sm text-gray-500">Index: {bot.pineconeIndex}</p>
+                        <p className="text-sm text-gray-500">Bot: {bot.id}</p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-4">

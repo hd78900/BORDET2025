@@ -52,7 +52,7 @@ export default function WidgetCore({ botId, embedded = false }: WidgetCoreProps)
     setLoading(true);
 
     try {
-      const response = await getChatResponse(input, currentBot.pineconeIndex);
+      const response = await getChatResponse(input, botId);
       setMessages(prev => [...prev, { role: 'assistant', content: response, timestamp }]);
     } catch (error) {
       console.error('Error:', error);

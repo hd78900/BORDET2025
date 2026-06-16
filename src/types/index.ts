@@ -8,14 +8,13 @@ export interface ChatBot {
   id: string;
   name: string;
   description: string;
-  pineconeIndex: string;
   icon: any;
 }
 
-export interface PineconeStats {
-  indexName: string;
+export interface VectorDbStats {
+  botId: string;
   vectorCount: number;
-  status: 'ready' | 'scaling' | 'error';
+  status: 'ready' | 'error';
 }
 
 export interface ChatState {

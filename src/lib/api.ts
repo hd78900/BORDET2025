@@ -1,26 +1,20 @@
-import { Pinecone } from '@pinecone-database/pinecone';
 import { useConfigStore } from '../store/configStore';
 import { supabase } from './supabase';
-import { chatbots } from '../config/chatbots';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const MISTRAL_PROXY_URL = `${SUPABASE_URL}/functions/v1/mistral-proxy`;
 
-let pc: Pinecone | null = null;
-
-function getPineconeClient(): Pinecone {
-  if (!pc) {
-    pc = new Pinecone({ apiKey: import.meta.env.VITE_PINECONE_API_KEY });
-  }
-  return pc;
-}
-
-interface PineconeMetadata {
-  text: string;
-  url?: string;
-  title?: string;
-  source?: string;
+interface DocumentMatch {
+  id: number;
+  content: string;
+  metadata: {
+    url?: string;
+    title?: string;
+    source?: string;
+    [key: string]: any;
+  };
+  similarity: number;
 }
 
 async function getAuthHeaders() {
@@ -69,7 +63,21 @@ async function mistralEmbeddings(input: string): Promise<number[]> {
   return data.data[0].embedding;
 }
 
-function extractProductsFromContext(matches: Array<{ metadata?: PineconeMetadata }>): Map<string, { name: string, url: string }> {
+async function searchDocuments(botId: string, queryEmbedding: number[], matchCount: number = 20): Promise<DocumentMatch[]> {
+  const { data, error } = await supabase.rpc('match_documents', {
+    query_embedding: JSON.stringify(queryEmbedding),
+    match_count: matchCount,
+    filter_bot_id: botId,
+  });
+
+  if (error) {
+    throw new Error(`Vector search error: ${error.message}`);
+  }
+
+  return data || [];
+}
+
+function extractProductsFromContext(matches: DocumentMatch[]): Map<string, { name: string, url: string }> {
   const products = new Map<string, { name: string, url: string }>();
   for (const match of matches) {
     const metadata = match.metadata;
@@ -132,21 +140,22 @@ async function getConversationContext(userId: string, botId: string, currentTime
   }
 }
 
-export async function getChatResponse(message: string, indexName: string, userId?: string, botId?: string) {
+export async function getChatResponse(message: string, botId: string, userId?: string, currentBotId?: string) {
   let conversationTimestamp = Date.now();
   let response: string;
   let products: Map<string, { name: string, url: string }> | undefined;
+  const activeBotId = currentBotId || botId;
 
   try {
     const { model, testMode, temperature, systemPrompt, contextRules } = useConfigStore.getState();
 
-    if (userId && botId) {
+    if (userId && activeBotId) {
       try {
         const { data: lastMessage } = await supabase
           .from('chat_messages')
           .select('conversation_timestamp')
           .eq('user_id', userId)
-          .eq('bot_id', botId)
+          .eq('bot_id', activeBotId)
           .eq('is_saved', false)
           .order('created_at', { ascending: false })
           .limit(1);
@@ -157,7 +166,7 @@ export async function getChatResponse(message: string, indexName: string, userId
 
         await supabase.from('chat_messages').insert({
           user_id: userId,
-          bot_id: botId,
+          bot_id: activeBotId,
           role: 'user',
           content: message,
           is_saved: false,
@@ -174,33 +183,27 @@ export async function getChatResponse(message: string, indexName: string, userId
         { role: "user", content: message }
       ], temperature);
     } else {
-      const index = getPineconeClient().index(indexName);
-
       const embedding = await mistralEmbeddings(message);
 
-      const queryResponse = await index.query({
-        vector: embedding,
-        topK: 20,
-        includeMetadata: true
-      });
+      const matches = await searchDocuments(botId, embedding, 20);
 
-      if (!queryResponse?.matches) {
+      if (!matches || matches.length === 0) {
         throw new Error('No matches found in vector database');
       }
 
-      products = extractProductsFromContext(queryResponse.matches);
+      products = extractProductsFromContext(matches);
 
-      const vectorContext = queryResponse.matches
-        .map(match => match.metadata?.text)
+      const vectorContext = matches
+        .map(match => match.content)
         .filter(Boolean)
         .join('\n\n');
 
       let conversationContext = '';
-      if (userId && botId) {
-        conversationContext = await getConversationContext(userId, botId, conversationTimestamp);
+      if (userId && activeBotId) {
+        conversationContext = await getConversationContext(userId, activeBotId, conversationTimestamp);
       }
 
-      const botSpecificRules = contextRules[botId || ''] || '';
+      const botSpecificRules = contextRules[activeBotId || ''] || '';
       const fullSystemPrompt = `${systemPrompt}\n\n${botSpecificRules}\n\nHistorique de la conversation:\n${conversationContext}\n\nContexte de la base de connaissances:\n${vectorContext}`;
 
       response = await mistralChat(model, [
@@ -208,16 +211,16 @@ export async function getChatResponse(message: string, indexName: string, userId
         { role: "user", content: message }
       ], temperature);
 
-      if (botId === 'bot1' && products) {
+      if (activeBotId === 'bot1' && products) {
         response = enforceProductUrls(response, products);
       }
     }
 
-    if (userId && botId) {
+    if (userId && activeBotId) {
       try {
         await supabase.from('chat_messages').insert({
           user_id: userId,
-          bot_id: botId,
+          bot_id: activeBotId,
           role: 'assistant',
           content: response,
           is_saved: false,
@@ -318,20 +321,24 @@ export async function startNewChat(userId: string, botId: string) {
   }
 }
 
-export async function checkPineconeStatus(indexName: string) {
+export async function checkVectorDbStatus(botId: string) {
   try {
-    const index = getPineconeClient().index(indexName);
-    const stats = await index.describeIndexStats();
+    const { count, error } = await supabase
+      .from('documents')
+      .select('*', { count: 'exact', head: true })
+      .eq('bot_id', botId);
+
+    if (error) throw error;
 
     return {
-      status: 'ready',
-      vectorCount: stats.totalVectorCount,
-      dimension: stats.dimension
+      status: 'ready' as const,
+      vectorCount: count || 0,
+      dimension: 1024
     };
   } catch (error) {
-    console.error('Error checking Pinecone status:', error);
+    console.error('Error checking vector DB status:', error);
     return {
-      status: 'error',
+      status: 'error' as const,
       error: error instanceof Error ? error.message : 'Unknown error',
       vectorCount: 0,
       dimension: 0

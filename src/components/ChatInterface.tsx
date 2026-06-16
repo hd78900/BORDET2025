@@ -83,7 +83,7 @@ export default function ChatInterface() {
     setLoading(true);
 
     try {
-      const response = await getChatResponse(input, currentBot.pineconeIndex, user.id, selectedBot);
+      const response = await getChatResponse(input, selectedBot, user.id, selectedBot);
       
       const assistantMessage: ChatMessage = {
         role: 'assistant',
