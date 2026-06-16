@@ -17,11 +17,11 @@ const CHAT_MODEL = "mistral-small-latest";   // FORCÉ : on ignore body.model
 const EMBED_MODEL = "mistral-embed";
 const MAX_TOKENS = 600;                       // borne le coût de sortie
 const DAILY_TOKEN_CAP = 2_000_000;            // plafond global / jour (ajustable)
-const RESERVE_CHAT = 2200;                    // réservation pessimiste (entrée bornée + 600 sortie)
+const RESERVE_CHAT = 8000;                    // réservation pessimiste (system prompt + contexte RAG + 600 sortie)
 const RESERVE_EMBED = 1200;
-const MAX_BODY_BYTES = 32 * 1024;
+const MAX_BODY_BYTES = 80 * 1024;             // ~80 Ko : couvre le contexte RAG, bloque les payloads géants
 const MAX_MESSAGES = 12;
-const MAX_TOTAL_CHARS = 6000;                 // somme des contents (entrée)
+const MAX_TOTAL_CHARS = 50000;                // somme des contents (système+RAG+historique+user)
 const MAX_EMBED_CHARS = 2000;
 
 const ALLOWED_ORIGINS = new Set([
@@ -118,7 +118,7 @@ Deno.serve(async (req: Request) => {
     const marketing = body?.mode === "marketing" && callerRole(req) === "authenticated";
     const model = marketing ? "mistral-large-latest" : CHAT_MODEL;
     const maxTokens = marketing ? 2000 : MAX_TOKENS;
-    const reserveN = marketing ? 8000 : RESERVE_CHAT;
+    const reserveN = marketing ? 16000 : RESERVE_CHAT;
 
     if (!(await reserve(reserveN)))
       return json({ error: "Service très demandé, merci de réessayer plus tard." }, 503);
