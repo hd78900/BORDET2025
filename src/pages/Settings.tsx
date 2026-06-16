@@ -414,61 +414,62 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-4">Status API Mistral</h3>
-          <div className="flex items-center space-x-2">
-            <div className={`h-3 w-3 rounded-full ${
-              stats.apiStatus === 'operational' ? 'bg-green-500' : 'bg-red-500'
-            }`}></div>
-            <span className="capitalize">{stats.apiStatus}</span>
+        <div className="lg:col-span-1 space-y-6">
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-lg font-semibold mb-4">Status API Mistral</h3>
+            <div className="flex items-center space-x-2">
+              <div className={`h-3 w-3 rounded-full ${
+                stats.apiStatus === 'operational' ? 'bg-green-500' : 'bg-red-500'
+              }`}></div>
+              <span className="capitalize">{stats.apiStatus}</span>
+            </div>
           </div>
+          {!testMode && (
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="text-lg font-semibold mb-4">Status des Bases de connaissances</h3>
+              <div className="space-y-4">
+                {chatbots.map((bot) => {
+                  const status = stats.vectorDbStatus[bot.id];
+                  const Icon = bot.icon;
+                  const vectorCount = status?.vectorCount;
+                  return (
+                    <div key={bot.id} className="flex items-center justify-between p-4 border rounded">
+                      <div className="flex items-center gap-3">
+                        <Icon className="h-6 w-5" />
+                        <div>
+                          <h4 className="font-medium">{bot.name}</h4>
+                          <p className="text-sm text-gray-500">Bot: {bot.id}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        {vectorCount > 0 && (
+                          <div className="text-right">
+                            <div className="font-medium">
+                              {vectorCount.toLocaleString()}
+                            </div>
+                            <div className="text-sm text-gray-500">records</div>
+                          </div>
+                        )}
+                        <div className="flex items-center space-x-2">
+                          <div className={`h-3 w-3 rounded-full ${
+                            status?.status === 'ready' ? 'bg-green-500' : 'bg-red-500'
+                          }`}></div>
+                          <span className="capitalize">{status?.status || 'Chargement...'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {!testMode && (
-        <>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-lg font-semibold mb-4">Status des Bases de connaissances</h3>
-            <div className="space-y-4">
-              {chatbots.map((bot) => {
-                const status = stats.vectorDbStatus[bot.id];
-                const Icon = bot.icon;
-                const vectorCount = status?.vectorCount;
-                return (
-                  <div key={bot.id} className="flex items-center justify-between p-4 border rounded">
-                    <div className="flex items-center gap-3">
-                      <Icon className="h-6 w-5" />
-                      <div>
-                        <h4 className="font-medium">{bot.name}</h4>
-                        <p className="text-sm text-gray-500">Bot: {bot.id}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      {vectorCount > 0 && (
-                        <div className="text-right">
-                          <div className="font-medium">
-                            {vectorCount.toLocaleString()}
-                          </div>
-                          <div className="text-sm text-gray-500">records</div>
-                        </div>
-                      )}
-                      <div className="flex items-center space-x-2">
-                        <div className={`h-3 w-3 rounded-full ${
-                          status?.status === 'ready' ? 'bg-green-500' : 'bg-red-500'
-                        }`}></div>
-                        <span className="capitalize">{status?.status || 'Chargement...'}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="text-sm text-gray-500 text-center">
-            Mise à jour automatique toutes les 30 secondes
-          </div>
-        </>
+        <div className="text-sm text-gray-500 text-center">
+          Mise à jour automatique toutes les 30 secondes
+        </div>
       )}
     </div>
   );
