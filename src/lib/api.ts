@@ -31,7 +31,8 @@ async function mistralChat(messages: Array<{ role: string; content: string }>, t
   const res = await fetch(`${MISTRAL_PROXY_URL}/chat`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ messages, temperature, mode }),
+    // model fourni en défaut pour rétro-compat avec l'ancien proxy ; le proxy durci l'ignore et choisit selon le mode
+    body: JSON.stringify({ model: 'mistral-small-latest', messages, temperature, mode }),
   });
 
   if (!res.ok) {
