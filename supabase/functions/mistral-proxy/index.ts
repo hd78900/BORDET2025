@@ -15,7 +15,7 @@ const SMALL = "mistral-small-latest";
 const LARGE = "mistral-large-latest";
 const EMBED_MODEL = "mistral-embed";
 const TEMPERATURE = 0.1;
-const MAX_TOKENS_CLIENT = 600;
+const MAX_TOKENS_CLIENT = 1200;
 const MAX_TOKENS_MKT = 2000;
 const DAILY_TOKEN_CAP = 2_000_000;
 const RESERVE_CLIENT = 8000;
@@ -37,12 +37,18 @@ const CLIENT_PROMPT =
 `Vous êtes l'assistant commercial de **Bordet** (outillage, ébénisterie, travail du bois).
 Répondez en français, en Markdown, en utilisant EXCLUSIVEMENT la base de connaissances ci-dessous.
 
+Le contexte contient des éléments étiquetés :
+- [PRODUIT — …] = fiche produit RÉELLE et achetable (avec son URL).
+- [GUIDE — …] = article de blog / conseil (PAS un produit à vendre).
+- [EXTRAIT DE LIVRE — …] = contenu de référence (PAS un produit).
+
 Règles STRICTES :
-- N'inventez JAMAIS de produit, de nom, de référence ni d'URL. Le libellé d'un lien doit être le **nom EXACT** du produit tel qu'il figure dans le contexte, associé à SON URL.
-- Ne créez pas de fausses options pour étoffer : listez UNIQUEMENT les produits réellement présents dans le contexte qui correspondent au besoin (de 1 à 4).
-- Ne mettez pas en avant un produit de niche/spécialisé (ex : mandrin « pour stylo ») comme recommandation principale d'un besoin polyvalent.
-- Si le contexte contient peu de produits adaptés, ou si l'usage est ambigu (perçage à colonne ? tournage sur bois ?), dites-le franchement et posez une brève question de clarification au lieu d'inventer.
-- Citez les produits au format **[Nom exact](URL exacte)**. Ton direct, concis.`
+- N'énoncez JAMAIS un prix, une dimension, un poids, une norme, une marque, une référence ni un auteur qui ne figure pas LITTÉRALEMENT dans un élément ci-dessous. Si la donnée manque, dites-le et renvoyez à la fiche produit — n'inventez rien.
+- Ne présentez comme **produit achetable** (au format **[Nom exact](URL)**) QUE les [PRODUIT]. Les [GUIDE] et [EXTRAIT DE LIVRE] sont des conseils : citez-les comme tels, jamais comme un produit à acheter. Ne réutilisez JAMAIS une même URL pour plusieurs produits distincts.
+- N'inventez aucun produit ni nom pour étoffer : listez 1 à 4 produits réels pertinents. Si aucun [PRODUIT] ne correspond, dites franchement « je n'ai pas cette référence dans ma base » au lieu de proposer un produit générique.
+- L'avoyage, l'égalisation ou le pliage des dents ne concernent QUE les scies. Ne les mentionnez JAMAIS pour un ciseau, une gouge ou un fer de rabot (ceux-ci s'affûtent sur pierre/meule).
+- Si l'usage est ambigu (perçage à colonne ? tournage ?), posez une brève question de clarification.
+- Ton direct, concis.`
 
 const MARKETING_PROMPT =
 `Vous êtes l'assistant de rédaction marketing de **Bordet** (outillage, ébénisterie, travail du bois).
@@ -194,7 +200,12 @@ Deno.serve(async (req: Request) => {
     }
 
     // 4) assemblage serveur : prompt + contexte RAG (le client ne contrôle ni l'un ni l'autre)
-    const context = matches.map((m) => m.content).filter(Boolean).join("\n\n");
+    const context = matches.map((m) => {
+      const u = m.metadata?.url || "";
+      const ti = m.metadata?.title ? " — " + m.metadata.title : "";
+      const type = /c2x\d/.test(u) ? "PRODUIT" : /c1200x\d/.test(u) ? "GUIDE" : "EXTRAIT DE LIVRE";
+      return `[${type}${ti}]\n${m.content}`;
+    }).filter(Boolean).join("\n\n");
     const sys = `${marketing ? MARKETING_PROMPT : CLIENT_PROMPT}\n\nContexte de la base de connaissances:\n${context}`;
     const messages = [{ role: "system", content: sys }, ...history, { role: "user", content: userMessage }];
 
