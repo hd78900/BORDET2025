@@ -127,7 +127,7 @@ function sanitizeUrls(response: string, matches: Array<{ content?: string; metad
     return ctxPrices.has(n) ? full : "(voir le prix sur la fiche produit)";
   });
   // 5) réfs/SKU (5-7 chiffres) absents du contexte -> neutralisés
-  out = out.replace(/\b\d{5,7}\b/g, (m) => (ctxText.includes(m) ? m : "(réf. sur la fiche)"));
+  out = out.replace(/\b\d{5,7}\b/g, (m) => (ctxText.includes(m) ? m : "(voir la fiche)"));
   // 6) restaurer les liens/URLs protégés
   out = out.replace(/\u0000(\d+)\u0000/g, (_, i) => tok[+i] ?? "");
   return out;
