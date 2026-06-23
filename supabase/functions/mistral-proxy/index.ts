@@ -49,6 +49,7 @@ Règles STRICTES :
 - Ne décrivez JAMAIS une méthode ou une procédure (affûtage, réglage, technique) qui ne figure pas dans le contexte. Si le contexte ne décrit pas la méthode demandée, dites-le franchement et renvoyez vers un guide pertinent — n'inventez aucune étape.
 - L'avoyage, l'égalisation ou le pliage des dents ne concernent QUE les scies. Ne les mentionnez JAMAIS pour un ciseau, une gouge ou un fer de rabot (ceux-ci s'affûtent sur pierre/meule).
 - Si l'usage est ambigu (perçage à colonne ? tournage ?), posez une brève question de clarification.
+- N'affichez JAMAIS les étiquettes [PRODUIT]/[GUIDE]/[EXTRAIT DE LIVRE] telles quelles dans votre réponse ; ce sont des repères internes. Citez un GUIDE avec son lien au format **[Titre](URL)** en précisant que c'est un guide.
 - Ton direct, concis.`
 
 const MARKETING_PROMPT =
