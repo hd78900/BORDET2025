@@ -1,21 +1,8 @@
-import { useConfigStore } from '../store/configStore';
 import { supabase } from './supabase';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const MISTRAL_PROXY_URL = `${SUPABASE_URL}/functions/v1/mistral-proxy`;
-
-interface DocumentMatch {
-  id: number;
-  content: string;
-  metadata: {
-    url?: string;
-    title?: string;
-    source?: string;
-    [key: string]: any;
-  };
-  similarity: number;
-}
 
 async function getAuthHeaders() {
   const { data: { session } } = await supabase.auth.getSession();
@@ -26,13 +13,12 @@ async function getAuthHeaders() {
   };
 }
 
-async function mistralChat(messages: Array<{ role: string; content: string }>, temperature: number, mode: 'client' | 'marketing' = 'client'): Promise<string> {
+async function chatViaProxy(message: string, mode: 'client' | 'marketing'): Promise<string> {
   const headers = await getAuthHeaders();
   const res = await fetch(`${MISTRAL_PROXY_URL}/chat`, {
     method: 'POST',
     headers,
-    // model fourni en défaut pour rétro-compat avec l'ancien proxy ; le proxy durci l'ignore et choisit selon le mode
-    body: JSON.stringify({ model: 'mistral-small-latest', messages, temperature, mode }),
+    body: JSON.stringify({ message, mode }),
   });
 
   if (!res.ok) {
@@ -41,144 +27,15 @@ async function mistralChat(messages: Array<{ role: string; content: string }>, t
   }
 
   const data = await res.json();
-  return data.choices[0].message.content;
-}
-
-async function mistralEmbeddings(input: string): Promise<number[]> {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${MISTRAL_PROXY_URL}/embeddings`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ input }),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(err.error?.message || err.error || `Embeddings API error: ${res.status}`);
-  }
-
-  const data = await res.json();
-  if (!data?.data?.[0]?.embedding) {
-    throw new Error('Failed to generate embeddings');
-  }
-  return data.data[0].embedding;
-}
-
-async function searchDocuments(botId: string, queryEmbedding: number[], matchCount: number = 20): Promise<DocumentMatch[]> {
-  const { data, error } = await supabase.rpc('match_documents', {
-    query_embedding: JSON.stringify(queryEmbedding),
-    match_count: matchCount,
-    filter_bot_id: botId,
-  });
-
-  if (error) {
-    throw new Error(`Vector search error: ${error.message}`);
-  }
-
-  return data || [];
-}
-
-function extractProductsFromContext(matches: DocumentMatch[]): Map<string, { name: string, url: string }> {
-  const products = new Map<string, { name: string, url: string }>();
-  for (const match of matches) {
-    const metadata = match.metadata;
-    if (metadata?.url && metadata.url.startsWith('https://www.bordet.fr/') && metadata.title) {
-      const name = metadata.title;
-      const normalizedName = name.toLowerCase().replace(/[^\w\s]/g, '');
-      products.set(normalizedName, { name, url: metadata.url });
-      products.set(
-        normalizedName.replace(/poele|poêle|insert|cheminée|foyer/g, '').trim(),
-        { name, url: metadata.url }
-      );
-    }
-  }
-  return products;
-}
-
-function enforceProductUrls(response: string, products: Map<string, { name: string, url: string }>): string {
-  let modifiedResponse = response;
-  modifiedResponse = modifiedResponse.replace(/\[(.*?)\]\((https?:\/\/[^\s)]+)\)/g, (match, text) => {
-    const normalizedText = text.toLowerCase().replace(/[^\w\s]/g, '');
-    for (const [key, value] of products.entries()) {
-      if (normalizedText.includes(key)) {
-        return `[**${value.name}**](${value.url})`;
-      }
-    }
-    return text;
-  });
-  const productPatterns = [
-    /\*\*([\w\s-]+(?:poêle|poele|insert|cheminée|foyer)[\w\s-]*)\*\*/gi,
-    /(?:^|\s)((?:poêle|poele|insert|cheminée|foyer)\s+(?:à\s+(?:bois|granulés|pellets|gaz))?\s+[\w\s-]+)(?:\s|$)/gi
-  ];
-  for (const pattern of productPatterns) {
-    modifiedResponse = modifiedResponse.replace(pattern, (match, productName) => {
-      const normalizedName = productName.toLowerCase().replace(/[^\w\s]/g, '');
-      for (const [key, value] of products.entries()) {
-        if (normalizedName.includes(key) || key.includes(normalizedName)) {
-          return ` [**${value.name}**](${value.url}) `;
-        }
-      }
-      return match;
-    });
-  }
-  return modifiedResponse;
-}
-
-const normUrlText = (s: string) =>
-  s.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
-
-// Garantie 100% : toute URL affichée doit provenir d'un chunk réellement récupéré.
-// Sinon elle est réécrite via le nom du produit/article, sinon l'URL est supprimée.
-function sanitizeUrls(response: string, matches: DocumentMatch[]): string {
-  const valid = new Set<string>();
-  const nameToUrl = new Map<string, string>();
-  for (const m of matches) {
-    const url = m.metadata?.url;
-    const title = m.metadata?.title;
-    if (url && url.startsWith('https://www.bordet.fr/')) {
-      valid.add(url);
-      if (title) nameToUrl.set(normUrlText(title), url);
-    }
-  }
-  let out = response.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (full, text, url) => {
-    if (valid.has(url)) return full;
-    const nt = normUrlText(text);
-    for (const [name, u] of nameToUrl) {
-      if (name && (nt === name || nt.includes(name) || name.includes(nt))) {
-        return `[${text}](${u})`;
-      }
-    }
-    return text; // lien fabriqué -> on garde le libellé, on retire l'URL
-  });
-  out = out.replace(/(?<![(\]])https?:\/\/[^\s)]+/g, (url) => (valid.has(url) ? url : ''));
-  return out;
-}
-
-async function getConversationContext(userId: string, botId: string, currentTimestamp: number): Promise<string> {
-  try {
-    const { data: messages, error } = await supabase
-      .from('chat_messages')
-      .select('role, content')
-      .eq('user_id', userId)
-      .eq('bot_id', botId)
-      .eq('conversation_timestamp', currentTimestamp)
-      .order('created_at', { ascending: true });
-    if (error || !messages || messages.length === 0) return '';
-    return messages.map(msg => `${msg.role}: ${msg.content}`).join('\n\n');
-  } catch (error) {
-    console.error('Error in getConversationContext:', error);
-    return '';
-  }
+  return data.choices?.[0]?.message?.content ?? '';
 }
 
 export async function getChatResponse(message: string, botId: string, userId?: string, currentBotId?: string, chatMode: 'client' | 'marketing' = 'client') {
   let conversationTimestamp = Date.now();
   let response: string;
-  let products: Map<string, { name: string, url: string }> | undefined;
   const activeBotId = currentBotId || botId;
 
   try {
-    const { temperature, systemPrompt, marketingPrompt, contextRules } = useConfigStore.getState();
 
     if (userId && activeBotId) {
       try {
@@ -208,44 +65,7 @@ export async function getChatResponse(message: string, botId: string, userId?: s
       }
     }
 
-    {
-      const embedding = await mistralEmbeddings(message);
-
-      const matches = await searchDocuments(botId, embedding, 20);
-
-      if (!matches || matches.length === 0) {
-        throw new Error('No matches found in vector database');
-      }
-
-      products = extractProductsFromContext(matches);
-
-      const vectorContext = matches
-        .map(match => match.content)
-        .filter(Boolean)
-        .join('\n\n');
-
-      let conversationContext = '';
-      if (userId && activeBotId) {
-        conversationContext = await getConversationContext(userId, activeBotId, conversationTimestamp);
-      }
-
-      const botSpecificRules = contextRules[activeBotId || ''] || '';
-      const fullSystemPrompt = chatMode === 'marketing'
-        ? `${marketingPrompt}\n\nHistorique de la conversation:\n${conversationContext}\n\nContexte de la base de connaissances:\n${vectorContext}`
-        : `${systemPrompt}\n\n${botSpecificRules}\n\nHistorique de la conversation:\n${conversationContext}\n\nContexte de la base de connaissances:\n${vectorContext}`;
-
-      response = await mistralChat([
-        { role: "system", content: fullSystemPrompt },
-        { role: "user", content: message }
-      ], temperature, chatMode);
-
-      if (activeBotId === 'bot1' && products) {
-        response = enforceProductUrls(response, products);
-      }
-
-      // Garantie 100% : aucune URL hors des chunks récupérés ne survit
-      response = sanitizeUrls(response, matches);
-    }
+    response = await chatViaProxy(message, chatMode);
 
     if (userId && activeBotId) {
       try {
