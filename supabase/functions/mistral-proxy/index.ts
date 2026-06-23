@@ -18,7 +18,7 @@ const TEMPERATURE = 0.1;
 const MAX_TOKENS_CLIENT = 1200;
 const MAX_TOKENS_MKT = 2000;
 const DAILY_TOKEN_CAP = 2_000_000;
-const RESERVE_CLIENT = 8000;
+const RESERVE_CLIENT = 14000;
 const RESERVE_MKT = 16000;
 const MAX_BODY_BYTES = 80 * 1024;
 const MAX_USER_CHARS = 2000;     // message utilisateur (unique)
@@ -159,7 +159,7 @@ Deno.serve(async (req: Request) => {
 
     const mode = body?.mode === "marketing" ? "marketing" : "client";
     const marketing = mode === "marketing" && callerRole(req) === "authenticated";
-    const model = marketing ? LARGE : SMALL;
+    const model = LARGE;  // client ET marketing sur large (meilleure obéissance anti-invention)
     const maxTokens = marketing ? MAX_TOKENS_MKT : MAX_TOKENS_CLIENT;
     const reserveN = marketing ? RESERVE_MKT : RESERVE_CLIENT;
 
