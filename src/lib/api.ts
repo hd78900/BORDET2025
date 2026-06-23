@@ -21,6 +21,10 @@ async function chatViaProxy(message: string, mode: 'client' | 'marketing', histo
     body: JSON.stringify({ message, mode, history }),
   });
 
+  if (res.status === 503) {
+    const e = await res.json().catch(() => ({} as any));
+    return e.error || "Le service est très sollicité en ce moment, merci de réessayer dans un instant.";
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Unknown error' }));
     throw new Error(err.error?.message || err.error || `Mistral API error: ${res.status}`);

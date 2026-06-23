@@ -46,7 +46,8 @@ Le contexte contient des éléments étiquetés :
 Règles STRICTES :
 - N'énoncez JAMAIS un prix, une dimension, un poids, une norme, une marque, une référence ni un auteur qui ne figure pas LITTÉRALEMENT dans un élément ci-dessous. Si la donnée manque, dites-le et renvoyez à la fiche produit — n'inventez rien.
 - Ne présentez comme **produit achetable** (au format **[Nom exact](URL)**) QUE les [PRODUIT]. Les [GUIDE] et [EXTRAIT DE LIVRE] sont des conseils : citez-les comme tels, jamais comme un produit à acheter. Ne réutilisez JAMAIS une même URL pour plusieurs produits distincts.
-- N'inventez aucun produit ni nom pour étoffer : listez 1 à 4 produits réels pertinents. Si aucun [PRODUIT] ne correspond, dites franchement « je n'ai pas cette référence dans ma base » au lieu de proposer un produit générique.
+- N'inventez aucun produit ni nom pour étoffer : listez 1 à 4 produits réels pertinents. Si aucun [PRODUIT] ne correspond, dites franchement « je n'ai pas cette référence dans ma base ».
+- N'affirmez l'existence d'un produit, d'un modèle ou d'une référence QUE si vous le citez avec son lien **[Nom](URL)**. Ne décrivez JAMAIS un produit ou une réf sans son lien.
 - Ne décrivez JAMAIS une méthode ou une procédure (affûtage, réglage, technique) qui ne figure pas dans le contexte. Si le contexte ne décrit pas la méthode demandée, dites-le franchement et renvoyez vers un guide pertinent — n'inventez aucune étape.
 - L'avoyage, l'égalisation ou le pliage des dents ne concernent QUE les scies. Ne les mentionnez JAMAIS pour un ciseau, une gouge ou un fer de rabot (ceux-ci s'affûtent sur pierre/meule).
 - Si l'usage est ambigu (perçage à colonne ? tournage ?), posez une brève question de clarification.
@@ -94,17 +95,19 @@ function sanitizeUrls(response: string, matches: Array<{ content?: string; metad
   const urlToTitle = new Map<string, string>();
   const nameToUrl = new Map<string, string>();
   const ctxPrices = new Set<string>();
+  let ctxText = "";
   for (const m of matches) {
     const url = m.metadata?.url, title = m.metadata?.title;
     if (url && url.startsWith("https://www.bordet.fr/")) {
       valid.add(url);
       if (title) { urlToTitle.set(url, title); nameToUrl.set(norm(title), url); }
     }
+    ctxText += " " + (m.content || "");
     for (const pm of (m.content || "").matchAll(/(\d+(?:[.,]\d+)?)\s*(?:€|EUR)/gi)) {
       ctxPrices.add(pm[1].replace(",", ".").replace(/\.0+$/, ""));
     }
   }
-  // 1) liens : url réelle -> libellé = VRAI titre (neutralise broderie + mauvais libellé) ; sinon rattraper via le nom, sinon retirer l'URL
+  // 1) liens : url réelle -> libellé = VRAI titre ; sinon rattraper via le nom, sinon retirer l'URL
   let out = response.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (full, text, url) => {
     if (valid.has(url)) { const t = urlToTitle.get(url); return t ? `[${t}](${url})` : full; }
     const nt = norm(text);
@@ -115,11 +118,18 @@ function sanitizeUrls(response: string, matches: Array<{ content?: string; metad
   });
   // 2) URLs nues non valides -> retirées
   out = out.replace(/(?<![(\]])https?:\/\/[^\s)]+/g, (url) => (valid.has(url) ? url : ""));
-  // 3) prix € absents des fiches récupérées -> neutralisés
+  // 3) protéger liens + URLs avant les filtres numériques (pour ne pas toucher aux IDs c2x/c1200x)
+  const tok: string[] = [];
+  out = out.replace(/(\[[^\]]+\]\([^)]+\)|https?:\/\/[^\s)]+)/g, (m) => { tok.push(m); return `\u0000${tok.length - 1}\u0000`; });
+  // 4) prix € absents des fiches -> neutralisés
   out = out.replace(/(\d+(?:[.,]\d+)?)\s*(?:€|euros?)/gi, (full, num) => {
     const n = String(num).replace(",", ".").replace(/\.0+$/, "");
     return ctxPrices.has(n) ? full : "(voir le prix sur la fiche produit)";
   });
+  // 5) réfs/SKU (5-7 chiffres) absents du contexte -> neutralisés
+  out = out.replace(/\b\d{5,7}\b/g, (m) => (ctxText.includes(m) ? m : "(réf. sur la fiche)"));
+  // 6) restaurer les liens/URLs protégés
+  out = out.replace(/\u0000(\d+)\u0000/g, (_, i) => tok[+i] ?? "");
   return out;
 }
 
