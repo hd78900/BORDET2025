@@ -84,7 +84,7 @@ export default function ChatInterface() {
     setLoading(true);
 
     try {
-      const response = await getChatResponse(input, selectedBot, user.id, selectedBot, chatMode);
+      const response = await getChatResponse(input, selectedBot, user.id, selectedBot, chatMode, currentMessages.slice(-6).map(m => ({ role: m.role, content: m.content })));
       
       const assistantMessage: ChatMessage = {
         role: 'assistant',

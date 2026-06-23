@@ -13,12 +13,12 @@ async function getAuthHeaders() {
   };
 }
 
-async function chatViaProxy(message: string, mode: 'client' | 'marketing'): Promise<string> {
+async function chatViaProxy(message: string, mode: 'client' | 'marketing', history: Array<{ role: string; content: string }>): Promise<string> {
   const headers = await getAuthHeaders();
   const res = await fetch(`${MISTRAL_PROXY_URL}/chat`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ message, mode }),
+    body: JSON.stringify({ message, mode, history }),
   });
 
   if (!res.ok) {
@@ -30,7 +30,7 @@ async function chatViaProxy(message: string, mode: 'client' | 'marketing'): Prom
   return data.choices?.[0]?.message?.content ?? '';
 }
 
-export async function getChatResponse(message: string, botId: string, userId?: string, currentBotId?: string, chatMode: 'client' | 'marketing' = 'client') {
+export async function getChatResponse(message: string, botId: string, userId?: string, currentBotId?: string, chatMode: 'client' | 'marketing' = 'client', history: Array<{ role: string; content: string }> = []) {
   let conversationTimestamp = Date.now();
   let response: string;
   const activeBotId = currentBotId || botId;
@@ -65,7 +65,7 @@ export async function getChatResponse(message: string, botId: string, userId?: s
       }
     }
 
-    response = await chatViaProxy(message, chatMode);
+    response = await chatViaProxy(message, chatMode, history);
 
     if (userId && activeBotId) {
       try {

@@ -160,8 +160,12 @@ Deno.serve(async (req: Request) => {
     if (!(await reserve(reserveN)))
       return json({ error: "Service très demandé, merci de réessayer plus tard." }, 503);
 
+    // requête de retrieval reformulée avec le contexte (derniers tours user) : les questions de suivi gardent le sujet
+    const recentUser = history.filter((m) => m.role === "user").slice(-2).map((m) => m.content);
+    const retrievalQuery = [...recentUser, userMessage].join("\n").slice(0, MAX_EMBED_CHARS);
+
     // 1) embed (serveur)
-    const er = await mistral("/embeddings", { model: EMBED_MODEL, input: userMessage });
+    const er = await mistral("/embeddings", { model: EMBED_MODEL, input: retrievalQuery });
     if (!er.ok) { await reconcile(0, reserveN); return json({ error: "embedding failed" }, 502); }
     const embedding = (await er.json())?.data?.[0]?.embedding;
     if (!Array.isArray(embedding)) { await reconcile(0, reserveN); return json({ error: "embedding failed" }, 502); }
@@ -172,7 +176,12 @@ Deno.serve(async (req: Request) => {
       headers: { apikey: env("SUPABASE_ANON_KEY"), Authorization: `Bearer ${env("SUPABASE_ANON_KEY")}`, "Content-Type": "application/json" },
       body: JSON.stringify({ query_embedding: `[${embedding.join(",")}]`, match_count: MATCH_COUNT, filter_bot_id: "bot1" }),
     });
-    const matches: Array<{ content: string; metadata?: { url?: string; title?: string } }> = mr.ok ? await mr.json() : [];
+    const raw: Array<{ content: string; metadata?: { url?: string; title?: string } }> = mr.ok ? await mr.json() : [];
+    const seen = new Set<string>();   // dédup par URL : un même article/produit ne monopolise pas plusieurs slots
+    const matches = raw.filter((m) => {
+      const key = m.metadata?.url ?? m.content.slice(0, 60);
+      if (seen.has(key)) return false; seen.add(key); return true;
+    });
 
     // 3) aucun contexte -> pas d'appel LLM, message canné (donc JAMAIS de réponse "libre")
     if (!matches.length) {

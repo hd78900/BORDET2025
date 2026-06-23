@@ -43,7 +43,7 @@ export default function PublicWidget() {
     setLoading(true);
 
     try {
-      const response = await getChatResponse(input, 'bot1');
+      const response = await getChatResponse(input, 'bot1', undefined, undefined, 'client', messages.slice(-6).map(m => ({ role: m.role, content: m.content })));
       
       const assistantMessage: ChatMessage = {
         role: 'assistant',
