@@ -112,7 +112,6 @@ Deno.serve(async (req: Request) => {
       total += m.content.length;
     }
     if (total > MAX_TOTAL_CHARS) return json({ error: "messages too long" }, 413);
-    const temperature = Math.min(Math.max(Number(body?.temperature) || 0.3, 0), 0.7);
 
     // large UNIQUEMENT pour le mode marketing d'un admin authentifié ; widget public (anon) -> toujours small.
     const marketing = body?.mode === "marketing" && callerRole(req) === "authenticated";
@@ -126,7 +125,7 @@ Deno.serve(async (req: Request) => {
     const res = await fetch(`${MISTRAL_API_BASE}/chat/completions`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model, messages, temperature, max_tokens: maxTokens, stream: false }),
+      body: JSON.stringify({ model, messages, temperature: 0.1, max_tokens: maxTokens, stream: false }),
     });
     const data = await res.json().catch(() => null);
     const used = res.ok && typeof data?.usage?.total_tokens === "number" ? data.usage.total_tokens : reserveN;

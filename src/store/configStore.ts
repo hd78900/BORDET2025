@@ -4,10 +4,9 @@ import { ConfigState, MistralModel } from '../types';
 
 const initialState = {
   model: 'mistral-small-latest' as MistralModel,
-  testMode: false,
   widgetTitle: 'Assistant Bordet',
   widgetWelcomeMessage: 'Comment puis-je vous aider ?',
-  temperature: 0.7,
+  temperature: 0.1,
   systemPrompt: `Vous êtes un assistant virtuel de **Bordet**. Voici vos directives :
 
 1. Commencez toujours par **"J'ai compris que ..."** suivi de la question posée.
@@ -56,7 +55,6 @@ export const useConfigStore = create<ConfigState>()(
     (set) => ({
       ...initialState,
       setModel: (model: MistralModel) => set({ model }),
-      setTestMode: (testMode: boolean) => set({ testMode }),
       setWidgetTitle: (title: string) => set({ widgetTitle: title }),
       setWidgetWelcomeMessage: (message: string) => set({ widgetWelcomeMessage: message }),
       setTemperature: (temperature: number) => set({ temperature }),

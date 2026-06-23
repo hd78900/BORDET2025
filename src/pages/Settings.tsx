@@ -9,7 +9,6 @@ import { supabase } from '../lib/supabase';
 export default function Settings() {
   const {
     model,
-    testMode,
     temperature,
     systemPrompt,
     marketingPrompt,
@@ -54,7 +53,6 @@ export default function Settings() {
     try {
       useConfigStore.setState({ 
         model,
-        testMode,
         ...localConfig
       });
       setSaveSuccess(true);
@@ -197,21 +195,6 @@ export default function Settings() {
                   </div>
                 )}
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-600">Mode test</span>
-                <button
-                  onClick={() => useConfigStore.setState({ testMode: !testMode })}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    testMode ? 'bg-blue-500' : 'bg-gray-200'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      testMode ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
             </div>
           </div>
 
@@ -228,21 +211,6 @@ export default function Settings() {
               </div>
 
               <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Température ({localConfig.temperature})
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={localConfig.temperature}
-                    onChange={(e) => setLocalConfig(prev => ({ ...prev, temperature: parseFloat(e.target.value) }))}
-                    className="w-full"
-                  />
-                </div>
-
                 <div>
                   <label className="block text-lg font-medium text-gray-700 mb-3">
                     Message système
@@ -404,7 +372,7 @@ export default function Settings() {
               <span className="capitalize">{stats.apiStatus}</span>
             </div>
           </div>
-          {!testMode && (
+          {(
             <div className="bg-white p-6 rounded-lg shadow">
               <h3 className="text-lg font-semibold mb-4">Status des Bases de connaissances</h3>
               <div className="space-y-4">
@@ -413,24 +381,22 @@ export default function Settings() {
                   const Icon = bot.icon;
                   const vectorCount = status?.vectorCount;
                   return (
-                    <div key={bot.id} className="flex items-center justify-between p-4 border rounded">
+                    <div key={bot.id} className="p-4 border rounded space-y-3">
                       <div className="flex items-center gap-3">
-                        <Icon className="h-6 w-5" />
-                        <div>
+                        <Icon className="h-6 w-5 flex-shrink-0" />
+                        <div className="min-w-0">
                           <h4 className="font-medium">{bot.name}</h4>
                           <p className="text-sm text-gray-500">Bot: {bot.id}</p>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-4">
-                        {vectorCount > 0 && (
-                          <div className="text-right">
-                            <div className="font-medium">
-                              {vectorCount.toLocaleString()}
-                            </div>
-                            <div className="text-sm text-gray-500">records</div>
+                      <div className="flex items-center justify-between gap-2">
+                        {vectorCount > 0 ? (
+                          <div className="whitespace-nowrap">
+                            <span className="font-medium">{vectorCount.toLocaleString()}</span>
+                            <span className="text-sm text-gray-500"> records</span>
                           </div>
-                        )}
-                        <div className="flex items-center space-x-2">
+                        ) : <span />}
+                        <div className="flex items-center space-x-2 whitespace-nowrap">
                           <div className={`h-3 w-3 rounded-full ${
                             status?.status === 'ready' ? 'bg-green-500' : 'bg-red-500'
                           }`}></div>
@@ -446,7 +412,7 @@ export default function Settings() {
         </div>
       </div>
 
-      {!testMode && (
+      {(
         <div className="text-sm text-gray-500 text-center">
           Mise à jour automatique toutes les 30 secondes
         </div>
