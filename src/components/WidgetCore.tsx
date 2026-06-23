@@ -56,7 +56,7 @@ export default function WidgetCore({ botId, embedded = false }: WidgetCoreProps)
     setLoading(true);
 
     try {
-      const response = await getChatResponse(input, botId);
+      const response = await getChatResponse(input, botId, undefined, undefined, 'client', true);
       setMessages(prev => [...prev, { role: 'assistant', content: response, timestamp }]);
     } catch (error) {
       console.error('Error:', error);

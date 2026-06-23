@@ -171,7 +171,7 @@ async function getConversationContext(userId: string, botId: string, currentTime
   }
 }
 
-export async function getChatResponse(message: string, botId: string, userId?: string, currentBotId?: string, chatMode: 'client' | 'marketing' = 'client') {
+export async function getChatResponse(message: string, botId: string, userId?: string, currentBotId?: string, chatMode: 'client' | 'marketing' = 'client', forceKb: boolean = false) {
   let conversationTimestamp = Date.now();
   let response: string;
   let products: Map<string, { name: string, url: string }> | undefined;
@@ -208,7 +208,7 @@ export async function getChatResponse(message: string, botId: string, userId?: s
       }
     }
 
-    if (testMode) {
+    if (testMode && !forceKb) {
       response = await mistralChat([
         { role: "system", content: chatMode === 'marketing' ? marketingPrompt : systemPrompt },
         { role: "user", content: message }
