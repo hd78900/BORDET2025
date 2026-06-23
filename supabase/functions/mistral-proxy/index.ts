@@ -12,13 +12,14 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const MISTRAL_API_BASE = "https://api.mistral.ai/v1";
 const SMALL = "mistral-small-latest";
+const MEDIUM = "mistral-medium-latest";
 const LARGE = "mistral-large-latest";
 const EMBED_MODEL = "mistral-embed";
 const TEMPERATURE = 0.1;
 const MAX_TOKENS_CLIENT = 1200;
 const MAX_TOKENS_MKT = 2000;
 const DAILY_TOKEN_CAP = 2_000_000;
-const RESERVE_CLIENT = 14000;
+const RESERVE_CLIENT = 10000;
 const RESERVE_MKT = 16000;
 const MAX_BODY_BYTES = 80 * 1024;
 const MAX_USER_CHARS = 2000;     // message utilisateur (unique)
@@ -88,25 +89,37 @@ const admin = () => createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE
 
 // ---- sanitization URLs (identique au front : seules les URLs des chunks récupérés survivent) ----
 const norm = (s: string) => s.toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
-function sanitizeUrls(response: string, matches: Array<{ metadata?: { url?: string; title?: string } }>): string {
+function sanitizeUrls(response: string, matches: Array<{ content?: string; metadata?: { url?: string; title?: string } }>): string {
   const valid = new Set<string>();
+  const urlToTitle = new Map<string, string>();
   const nameToUrl = new Map<string, string>();
+  const ctxPrices = new Set<string>();
   for (const m of matches) {
     const url = m.metadata?.url, title = m.metadata?.title;
     if (url && url.startsWith("https://www.bordet.fr/")) {
       valid.add(url);
-      if (title) nameToUrl.set(norm(title), url);
+      if (title) { urlToTitle.set(url, title); nameToUrl.set(norm(title), url); }
+    }
+    for (const pm of (m.content || "").matchAll(/(\d+(?:[.,]\d+)?)\s*(?:€|EUR)/gi)) {
+      ctxPrices.add(pm[1].replace(",", ".").replace(/\.0+$/, ""));
     }
   }
+  // 1) liens : url réelle -> libellé = VRAI titre (neutralise broderie + mauvais libellé) ; sinon rattraper via le nom, sinon retirer l'URL
   let out = response.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (full, text, url) => {
-    if (valid.has(url)) return full;
+    if (valid.has(url)) { const t = urlToTitle.get(url); return t ? `[${t}](${url})` : full; }
     const nt = norm(text);
     for (const [name, u] of nameToUrl) {
-      if (name && (nt === name || nt.includes(name) || name.includes(nt))) return `[${text}](${u})`;
+      if (name && (nt === name || nt.includes(name) || name.includes(nt))) return `[${urlToTitle.get(u) ?? text}](${u})`;
     }
     return text;
   });
+  // 2) URLs nues non valides -> retirées
   out = out.replace(/(?<![(\]])https?:\/\/[^\s)]+/g, (url) => (valid.has(url) ? url : ""));
+  // 3) prix € absents des fiches récupérées -> neutralisés
+  out = out.replace(/(\d+(?:[.,]\d+)?)\s*(?:€|euros?)/gi, (full, num) => {
+    const n = String(num).replace(",", ".").replace(/\.0+$/, "");
+    return ctxPrices.has(n) ? full : "(voir le prix sur la fiche produit)";
+  });
   return out;
 }
 
@@ -159,7 +172,7 @@ Deno.serve(async (req: Request) => {
 
     const mode = body?.mode === "marketing" ? "marketing" : "client";
     const marketing = mode === "marketing" && callerRole(req) === "authenticated";
-    const model = LARGE;  // client ET marketing sur large (meilleure obéissance anti-invention)
+    const model = marketing ? LARGE : MEDIUM;  // client -> medium, marketing -> large
     const maxTokens = marketing ? MAX_TOKENS_MKT : MAX_TOKENS_CLIENT;
     const reserveN = marketing ? RESERVE_MKT : RESERVE_CLIENT;
 
