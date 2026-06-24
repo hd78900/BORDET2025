@@ -221,23 +221,39 @@ Deno.serve(async (req: Request) => {
       embeddings.push(e);
     }
 
-    // 2) retrieval (parallèle) via match_documents (anon -> livres exclus du public)
-    const lists: Match[][] = await Promise.all(embeddings.map((emb) =>
-      fetch(`${env("SUPABASE_URL")}/rest/v1/rpc/match_documents`, {
+    // 2) retrieval HYBRIDE (vectoriel + lexical plein-texte) via match_documents_hybrid.
+    //    Le lexical fait remonter les produits que le vecteur seul rate (marques diverses,
+    //    essences de bois nommées). Fallback match_documents si la fonction n'existe pas encore.
+    const rpc = (name: string, payload: unknown) =>
+      fetch(`${env("SUPABASE_URL")}/rest/v1/rpc/${name}`, {
         method: "POST",
         headers: { apikey: env("SUPABASE_ANON_KEY"), Authorization: `Bearer ${env("SUPABASE_ANON_KEY")}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ query_embedding: `[${emb.join(",")}]`, match_count: MATCH_COUNT, filter_bot_id: "bot1" }),
-      }).then((r) => (r.ok ? r.json() : [])).catch(() => [] as Match[])
-    ));
+        body: JSON.stringify(payload),
+      });
+    const retrieveOne = async (emb: number[], text: string): Promise<Match[]> => {
+      const qe = `[${emb.join(",")}]`;
+      try {
+        const r = await rpc("match_documents_hybrid", { query_embedding: qe, query_text: text, match_count: MATCH_COUNT, filter_bot_id: "bot1" });
+        if (r.ok) return await r.json();
+      } catch { /* fallback ci-dessous */ }
+      const r2 = await rpc("match_documents", { query_embedding: qe, match_count: MATCH_COUNT, filter_bot_id: "bot1" }).catch(() => null);
+      return r2 && r2.ok ? await r2.json() : [];
+    };
+    const lists: Match[][] = await Promise.all(embeddings.map((emb, i) => retrieveOne(emb, queries[i])));
 
-    // fusion : meilleure similarité par URL, tri décroissant, top MATCH_COUNT
-    const byKey = new Map<string, Match>();
-    for (const list of lists) for (const m of list) {
-      const key = m.metadata?.url ?? m.content.slice(0, 60);
-      const prev = byKey.get(key);
-      if (!prev || (m.similarity ?? 0) > (prev.similarity ?? 0)) byKey.set(key, m);
+    // fusion : interleave (priorité au 1er = message courant), dédup par URL, top MATCH_COUNT
+    const seenKeys = new Set<string>();
+    const matches: Match[] = [];
+    for (let i = 0; i < MATCH_COUNT && matches.length < MATCH_COUNT; i++) {
+      for (const list of lists) {
+        const m = list[i];
+        if (!m) continue;
+        const key = m.metadata?.url ?? m.content.slice(0, 60);
+        if (seenKeys.has(key)) continue;
+        seenKeys.add(key); matches.push(m);
+        if (matches.length >= MATCH_COUNT) break;
+      }
     }
-    const matches = [...byKey.values()].sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0)).slice(0, MATCH_COUNT);
 
     // 3) aucun contexte -> pas d'appel LLM, message canné (donc JAMAIS de réponse "libre")
     if (!matches.length) {
