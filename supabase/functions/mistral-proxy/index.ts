@@ -285,16 +285,27 @@ Deno.serve(async (req: Request) => {
     const orKey = Deno.env.get("OPENROUTER_API_KEY");
     const orModel = (ws?.chat_model || "").trim();
     const useOR = !marketing && !!orKey && !!orModel;
-    const cr = useOR
-      ? await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${orKey}`, "Content-Type": "application/json",
-                     "HTTP-Referer": "https://chatbordet.netlify.app", "X-Title": "Bordet Assistant" },
-          // reasoning désactivé : latence prod (un chatbot ne peut pas raisonner 1-3 min/réponse)
-          body: JSON.stringify({ model: orModel, messages, temperature: TEMPERATURE, max_tokens: maxTokens, stream: false, reasoning: { enabled: false } }),
-        })
-      : await mistral("/chat/completions", { model, messages, temperature: TEMPERATURE, max_tokens: maxTokens, stream: false });
-    const data = await cr.json().catch(() => null);
+    const orCall = (reasoningOff: boolean) => fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${orKey}`, "Content-Type": "application/json",
+                 "HTTP-Referer": "https://chatbordet.netlify.app", "X-Title": "Bordet Assistant" },
+      // reasoning désactivé par défaut : latence prod. Certains modèles l'imposent -> retry sans (voir ci-dessous).
+      body: JSON.stringify({ model: orModel, messages, temperature: TEMPERATURE, max_tokens: maxTokens, stream: false,
+                             ...(reasoningOff ? { reasoning: { enabled: false } } : {}) }),
+    });
+    let cr: Response;
+    let data: any;
+    if (useOR) {
+      cr = await orCall(true);
+      data = await cr.json().catch(() => null);
+      if (data?.error && /reasoning is mandatory/i.test(JSON.stringify(data.error))) {
+        cr = await orCall(false);                    // modèle à reasoning obligatoire
+        data = await cr.json().catch(() => null);
+      }
+    } else {
+      cr = await mistral("/chat/completions", { model, messages, temperature: TEMPERATURE, max_tokens: maxTokens, stream: false });
+      data = await cr.json().catch(() => null);
+    }
     const used = cr.ok && typeof data?.usage?.total_tokens === "number" ? data.usage.total_tokens : reserveN;
     await reconcile(used, reserveN);
     if (!cr.ok || !data?.choices?.[0]?.message) return json(data ?? { error: "upstream error" }, cr.status);
