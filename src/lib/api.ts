@@ -76,6 +76,36 @@ export async function playgroundChat(
   };
 }
 
+// Chat ADMIN (banc d'essai intégré) : même persistance que getChatResponse (chat_messages, continuité de
+// conversation_timestamp) mais choisit le modèle et renvoie les métriques (vitesse + tokens pour le coût).
+export async function getAdminChatResponse(
+  message: string,
+  botKey: string,
+  userId: string,
+  mode: 'client' | 'marketing',
+  history: Array<{ role: string; content: string }>,
+  model: string
+): Promise<PlaygroundResult> {
+  let conversationTimestamp = Date.now();
+  try {
+    const { data: last } = await supabase
+      .from('chat_messages')
+      .select('conversation_timestamp')
+      .eq('user_id', userId).eq('bot_id', botKey).eq('is_saved', false)
+      .order('created_at', { ascending: false }).limit(1);
+    if (last && last.length > 0) conversationTimestamp = last[0].conversation_timestamp;
+    await supabase.from('chat_messages').insert({ user_id: userId, bot_id: botKey, role: 'user', content: message, is_saved: false, conversation_timestamp: conversationTimestamp });
+  } catch (e) { console.error('save user msg', e); }
+
+  const r = await playgroundChat(message, mode, history, model);
+
+  try {
+    await supabase.from('chat_messages').insert({ user_id: userId, bot_id: botKey, role: 'assistant', content: r.content, is_saved: false, conversation_timestamp: conversationTimestamp });
+  } catch (e) { console.error('save assistant msg', e); }
+
+  return r;
+}
+
 export async function getChatResponse(message: string, botId: string, userId?: string, currentBotId?: string, chatMode: 'client' | 'marketing' = 'client', history: Array<{ role: string; content: string }> = []) {
   let conversationTimestamp = Date.now();
   let response: string;
