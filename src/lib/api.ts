@@ -34,6 +34,48 @@ async function chatViaProxy(message: string, mode: 'client' | 'marketing', histo
   return data.choices?.[0]?.message?.content ?? '';
 }
 
+// ---- Banc d'essai (admin) : choisit le modèle par requête + renvoie vitesse + tokens pour le coût ----
+export type PlaygroundResult = {
+  content: string;
+  model: string;
+  latencyMs: number;
+  promptTokens: number;
+  completionTokens: number;
+  error?: boolean;
+};
+
+export async function playgroundChat(
+  message: string,
+  mode: 'client' | 'marketing',
+  history: Array<{ role: string; content: string }>,
+  model: string
+): Promise<PlaygroundResult> {
+  const headers = await getAuthHeaders();
+  const t0 = performance.now();
+  const res = await fetch(`${MISTRAL_PROXY_URL}/chat`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ message, mode, history, model }),
+  });
+  const latencyMs = Math.round(performance.now() - t0);
+  const empty = { model, latencyMs, promptTokens: 0, completionTokens: 0, error: true };
+  if (res.status === 503) {
+    const e = await res.json().catch(() => ({} as any));
+    return { ...empty, content: e.error || 'Service très sollicité, réessayez dans un instant.' };
+  }
+  const data = await res.json().catch(() => ({} as any));
+  if (!res.ok || !data?.choices?.[0]?.message) {
+    return { ...empty, content: data?.error?.message || data?.error || `Erreur ${res.status}` };
+  }
+  return {
+    content: data.choices[0].message.content ?? '',
+    model: data.model ?? model,
+    latencyMs,
+    promptTokens: data.usage?.prompt_tokens ?? 0,
+    completionTokens: data.usage?.completion_tokens ?? 0,
+  };
+}
+
 export async function getChatResponse(message: string, botId: string, userId?: string, currentBotId?: string, chatMode: 'client' | 'marketing' = 'client', history: Array<{ role: string; content: string }> = []) {
   let conversationTimestamp = Date.now();
   let response: string;

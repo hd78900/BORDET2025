@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
+import Playground from './pages/Playground';
 import Admin from './pages/Admin';
 import FAQ from './pages/FAQ';
 import Login from './pages/Login';
@@ -96,6 +97,14 @@ function App() {
                 <Settings />
               </PrivateRoute>
             } 
+          />
+          <Route
+            path="playground"
+            element={
+              <PrivateRoute requireAdmin>
+                <Playground />
+              </PrivateRoute>
+            }
           />
           <Route path="admin" element={<Admin />} />
           <Route path="faq" element={<FAQ />} />
