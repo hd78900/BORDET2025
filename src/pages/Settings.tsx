@@ -36,6 +36,9 @@ export default function Settings() {
     widgetWelcomeMessage
   });
   const [savingWidget, setSavingWidget] = useState(false);
+  const [prompts, setPrompts] = useState({ client_prompt: '', marketing_prompt: '' });
+  const [savingPrompts, setSavingPrompts] = useState(false);
+  const [promptsSaved, setPromptsSaved] = useState(false);
 
   useEffect(() => {
     setLocalConfig({
@@ -47,6 +50,13 @@ export default function Settings() {
       widgetWelcomeMessage
     });
   }, [temperature, systemPrompt, marketingPrompt, contextRules, widgetTitle, widgetWelcomeMessage]);
+
+  useEffect(() => {
+    supabase.from('widget_settings').select('client_prompt, marketing_prompt').eq('id', 1).maybeSingle()
+      .then(({ data }) => {
+        if (data) setPrompts({ client_prompt: data.client_prompt || '', marketing_prompt: data.marketing_prompt || '' });
+      });
+  }, []);
 
   const handleSaveConfig = () => {
     setIsSaving(true);
@@ -105,6 +115,22 @@ export default function Settings() {
       console.error('Erreur lors de la sauvegarde des paramètres du widget:', error);
     } finally {
       setSavingWidget(false);
+    }
+  };
+
+  const handleSavePrompts = async () => {
+    setSavingPrompts(true);
+    try {
+      const { error } = await supabase.from('widget_settings')
+        .update({ client_prompt: prompts.client_prompt, marketing_prompt: prompts.marketing_prompt })
+        .eq('id', 1);
+      if (error) throw error;
+      setPromptsSaved(true);
+      setTimeout(() => setPromptsSaved(false), 3000);
+    } catch (e) {
+      console.error('Erreur sauvegarde prompts:', e);
+    } finally {
+      setSavingPrompts(false);
     }
   };
 
@@ -211,51 +237,47 @@ export default function Settings() {
               </div>
 
               <div className="space-y-6">
+                <p className="text-sm text-gray-500">
+                  Ces prompts pilotent réellement le chatbot (lus côté serveur à chaque réponse). Le contexte (produits/articles trouvés) est ajouté automatiquement après. Effet immédiat après enregistrement, sans redéploiement.
+                </p>
                 <div>
-                  <label className="block text-lg font-medium text-gray-700 mb-3">
-                    Message système
+                  <label className="block text-lg font-medium text-gray-700 mb-2">
+                    Prompt — Assistant client (chatbot &amp; widget)
                   </label>
                   <textarea
-                    value={localConfig.systemPrompt}
-                    onChange={(e) => setLocalConfig(prev => ({ ...prev, systemPrompt: e.target.value }))}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 min-h-[120px]"
-                    rows={5}
+                    value={prompts.client_prompt}
+                    onChange={(e) => setPrompts(p => ({ ...p, client_prompt: e.target.value }))}
+                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 min-h-[220px] font-mono text-sm"
+                    rows={14}
                   />
                 </div>
-
                 <div>
-                  <label className="block text-lg font-medium text-gray-700 mb-3">
-                    Prompt — Contenu marketing
+                  <label className="block text-lg font-medium text-gray-700 mb-2">
+                    Prompt — Contenu marketing (mode admin)
                   </label>
                   <textarea
-                    value={localConfig.marketingPrompt}
-                    onChange={(e) => setLocalConfig(prev => ({ ...prev, marketingPrompt: e.target.value }))}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 min-h-[120px]"
-                    rows={5}
-                    placeholder="Prompt utilisé en mode « Contenu marketing »..."
+                    value={prompts.marketing_prompt}
+                    onChange={(e) => setPrompts(p => ({ ...p, marketing_prompt: e.target.value }))}
+                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 min-h-[160px] font-mono text-sm"
+                    rows={9}
                   />
                 </div>
-
-                {chatbots.map((bot) => (
-                  <div key={bot.id}>
-                    <label className="block text-lg font-medium text-gray-700 mb-3">
-                      Règles contextuelles - {bot.name}
-                    </label>
-                    <textarea
-                      value={localConfig.contextRules[bot.id] || ''}
-                      onChange={(e) => setLocalConfig(prev => ({
-                        ...prev,
-                        contextRules: {
-                          ...prev.contextRules,
-                          [bot.id]: e.target.value
-                        }
-                      }))}
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 min-h-[100px]"
-                      rows={4}
-                      placeholder="Règles spécifiques pour ce bot..."
-                    />
-                  </div>
-                ))}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleSavePrompts}
+                    disabled={savingPrompts}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {savingPrompts ? (
+                      <><RefreshCw className="h-4 w-4 animate-spin" /> Enregistrement...</>
+                    ) : (
+                      <><Save className="h-4 w-4" /> Enregistrer les prompts</>
+                    )}
+                  </button>
+                  {promptsSaved && (
+                    <span className="text-green-600 text-sm">Prompts enregistrés ✓ (effet immédiat)</span>
+                  )}
+                </div>
               </div>
             </div>
 

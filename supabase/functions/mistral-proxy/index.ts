@@ -229,7 +229,11 @@ Deno.serve(async (req: Request) => {
       const type = /c2x\d/.test(u) ? "PRODUIT" : /c1200x\d/.test(u) ? "GUIDE" : "EXTRAIT DE LIVRE";
       return `[${type}${ti}]\n${m.content}`;
     }).filter(Boolean).join("\n\n");
-    const sys = `${marketing ? MARKETING_PROMPT : CLIENT_PROMPT}\n\nContexte de la base de connaissances:\n${context}`;
+    // prompts éditables depuis le backoffice (widget_settings) ; fallback constantes
+    const { data: ws } = await sb.from("widget_settings").select("client_prompt, marketing_prompt").eq("id", 1).maybeSingle();
+    const clientP = (ws?.client_prompt || "").trim() || CLIENT_PROMPT;
+    const mktP = (ws?.marketing_prompt || "").trim() || MARKETING_PROMPT;
+    const sys = `${marketing ? mktP : clientP}\n\nContexte de la base de connaissances:\n${context}`;
     const messages = [{ role: "system", content: sys }, ...history, { role: "user", content: userMessage }];
 
     // 5) génération
