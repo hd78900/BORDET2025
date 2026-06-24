@@ -285,17 +285,21 @@ Deno.serve(async (req: Request) => {
     const sys = `${marketing ? mktP : clientP}\n\nContexte de la base de connaissances:\n${context}`;
     const messages = [{ role: "system", content: sys }, ...history, { role: "user", content: userMessage }];
 
-    // 5) génération : chat client -> OpenRouter si configuré (modèle FORCÉ serveur via widget_settings.chat_model,
-    //    ex. "qwen/qwen3.7-plus") ; sinon Mistral (marketing reste large). Embeddings restent Mistral.
+    // 5) génération. Modèle : override BANC D'ESSAI (admin authentifié + allowlist) > marketing large >
+    //    chat_model prod (OpenRouter) > Mistral medium. Le widget public (anon) ne peut PAS choisir -> prod intact.
     const orKey = Deno.env.get("OPENROUTER_API_KEY");
-    const orModel = (ws?.chat_model || "").trim();
-    const useOR = !marketing && !!orKey && !!orModel;
+    const ALLOWED_TEST = new Set(["mistral-medium-latest", "openai/gpt-5.4-nano", "google/gemini-3.1-flash-lite"]);
+    const isAdmin = callerRole(req) === "authenticated";
+    const testModel = isAdmin && typeof body?.model === "string" && ALLOWED_TEST.has(body.model) ? body.model : null;
+    const chatModelGlobal = (ws?.chat_model || "").trim();
+    const finalModel = testModel ?? (marketing ? LARGE : (chatModelGlobal || MEDIUM));
+    const useOR = finalModel.includes("/") && !!orKey;   // un slug OpenRouter contient "/" ; sinon Mistral direct
     const orCall = (reasoningOff: boolean) => fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${orKey}`, "Content-Type": "application/json",
                  "HTTP-Referer": "https://chatbordet.netlify.app", "X-Title": "Bordet Assistant" },
       // reasoning désactivé par défaut : latence prod. Certains modèles l'imposent -> retry sans (voir ci-dessous).
-      body: JSON.stringify({ model: orModel, messages, temperature: TEMPERATURE, max_tokens: maxTokens, stream: false,
+      body: JSON.stringify({ model: finalModel, messages, temperature: TEMPERATURE, max_tokens: maxTokens, stream: false,
                              ...(reasoningOff ? { reasoning: { enabled: false } } : {}) }),
     });
     let cr: Response;
@@ -308,7 +312,7 @@ Deno.serve(async (req: Request) => {
         data = await cr.json().catch(() => null);
       }
     } else {
-      cr = await mistral("/chat/completions", { model, messages, temperature: TEMPERATURE, max_tokens: maxTokens, stream: false });
+      cr = await mistral("/chat/completions", { model: finalModel, messages, temperature: TEMPERATURE, max_tokens: maxTokens, stream: false });
       data = await cr.json().catch(() => null);
     }
     const used = cr.ok && typeof data?.usage?.total_tokens === "number" ? data.usage.total_tokens : reserveN;
