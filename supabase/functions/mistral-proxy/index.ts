@@ -119,7 +119,7 @@ function sanitizeUrls(response: string, matches: Array<{ content?: string; metad
     // URLs présentes dans le CONTENU des chunks (ex. chunk-catalogue « Lien : … ») = réelles (issues du corpus)
     for (const cm of (m.content || "").matchAll(/https:\/\/www\.bordet\.fr\/[^\s)\]]+/g)) valid.add(cm[0]);
     ctxText += " " + (m.content || "");
-    for (const pm of (m.content || "").matchAll(/([\d  .,]*\d)\s*(?:€|EUR)/gi)) {
+    for (const pm of (m.content || "").matchAll(/([\d \u00a0.,]*\d)\s*(?:€|EUR)/gi)) {
       ctxPrices.add(normPrice(pm[1]));
     }
   }
@@ -138,7 +138,7 @@ function sanitizeUrls(response: string, matches: Array<{ content?: string; metad
   const tok: string[] = [];
   out = out.replace(/(\[[^\]]+\]\([^)]+\)|https?:\/\/[^\s)]+)/g, (m) => { tok.push(m); return `\u0000${tok.length - 1}\u0000`; });
   // 4) prix € absents des fiches -> neutralisés
-  out = out.replace(/([\d  .,]*\d)\s*(?:€|euros?)/gi, (full, num) => {
+  out = out.replace(/([\d \u00a0.,]*\d)\s*(?:€|euros?)/gi, (full, num) => {
     return ctxPrices.has(normPrice(num)) ? full : "(voir le prix sur la fiche produit)";
   });
   // 5) réfs/SKU (5-7 chiffres) absents du contexte -> neutralisés
