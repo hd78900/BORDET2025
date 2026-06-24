@@ -241,7 +241,8 @@ Deno.serve(async (req: Request) => {
     const retrieveOne = async (emb: number[], text: string): Promise<Match[]> => {
       const qe = `[${emb.join(",")}]`;
       try {
-        const r = await rpc("match_documents_hybrid", { query_embedding: qe, query_text: text, match_count: MATCH_COUNT, filter_bot_id: "bot1" });
+        // include_books : livres autorisés UNIQUEMENT en marketing (admin authentifié) ; jamais pour le widget public.
+        const r = await rpc("match_documents_hybrid", { query_embedding: qe, query_text: text, match_count: MATCH_COUNT, filter_bot_id: "bot1", include_books: marketing });
         if (r.ok) return await r.json();
       } catch { /* fallback ci-dessous */ }
       const r2 = await rpc("match_documents", { query_embedding: qe, match_count: MATCH_COUNT, filter_bot_id: "bot1" }).catch(() => null);
