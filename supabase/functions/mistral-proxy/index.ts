@@ -98,6 +98,12 @@ const admin = () => createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE
 
 // ---- sanitization URLs (identique au front : seules les URLs des chunks récupérés survivent) ----
 const norm = (s: string) => s.toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
+// normalise un prix : retire les séparateurs de milliers (espace/nbsp/point), virgule = décimale, sans zéros finaux
+const normPrice = (s: string) => {
+  let t = s.replace(/[  ]/g, "");
+  if (t.includes(",")) t = t.replace(/\./g, "").replace(",", ".");
+  return t.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
+};
 function sanitizeUrls(response: string, matches: Array<{ content?: string; metadata?: { url?: string; title?: string } }>): string {
   const valid = new Set<string>();
   const urlToTitle = new Map<string, string>();
@@ -113,8 +119,8 @@ function sanitizeUrls(response: string, matches: Array<{ content?: string; metad
     // URLs présentes dans le CONTENU des chunks (ex. chunk-catalogue « Lien : … ») = réelles (issues du corpus)
     for (const cm of (m.content || "").matchAll(/https:\/\/www\.bordet\.fr\/[^\s)\]]+/g)) valid.add(cm[0]);
     ctxText += " " + (m.content || "");
-    for (const pm of (m.content || "").matchAll(/(\d+(?:[.,]\d+)?)\s*(?:€|EUR)/gi)) {
-      ctxPrices.add(pm[1].replace(",", ".").replace(/\.0+$/, ""));
+    for (const pm of (m.content || "").matchAll(/([\d  .,]*\d)\s*(?:€|EUR)/gi)) {
+      ctxPrices.add(normPrice(pm[1]));
     }
   }
   // 1) liens : url réelle -> libellé = VRAI titre ; sinon rattraper via le nom, sinon retirer l'URL
@@ -132,9 +138,8 @@ function sanitizeUrls(response: string, matches: Array<{ content?: string; metad
   const tok: string[] = [];
   out = out.replace(/(\[[^\]]+\]\([^)]+\)|https?:\/\/[^\s)]+)/g, (m) => { tok.push(m); return `\u0000${tok.length - 1}\u0000`; });
   // 4) prix € absents des fiches -> neutralisés
-  out = out.replace(/(\d+(?:[.,]\d+)?)\s*(?:€|euros?)/gi, (full, num) => {
-    const n = String(num).replace(",", ".").replace(/\.0+$/, "");
-    return ctxPrices.has(n) ? full : "(voir le prix sur la fiche produit)";
+  out = out.replace(/([\d  .,]*\d)\s*(?:€|euros?)/gi, (full, num) => {
+    return ctxPrices.has(normPrice(num)) ? full : "(voir le prix sur la fiche produit)";
   });
   // 5) réfs/SKU (5-7 chiffres) absents du contexte -> neutralisés
   out = out.replace(/\b\d{5,7}\b/g, (m) => (ctxText.includes(m) ? m : "(voir la fiche)"));
