@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { chatbots } from '../config/chatbots';
 import { checkVectorDbStatus, checkApiStatus } from '../lib/api';
-import { RefreshCw, Save, Sliders, ExternalLink, Code, Copy, Check } from 'lucide-react';
+import { RefreshCw, Save, Sliders, ExternalLink, Code, Copy, Check, Pencil, X } from 'lucide-react';
 import { useConfigStore } from '../store/configStore';
 import PublicWidget from '../components/PublicWidget';
 import { supabase } from '../lib/supabase';
@@ -37,6 +37,7 @@ export default function Settings() {
   const [prompts, setPrompts] = useState({ client_prompt: '', marketing_prompt: '' });
   const [savingPrompts, setSavingPrompts] = useState(false);
   const [promptsSaved, setPromptsSaved] = useState(false);
+  const [editingPrompt, setEditingPrompt] = useState<null | 'client' | 'marketing'>(null);
 
   useEffect(() => {
     setLocalConfig({
@@ -190,48 +191,27 @@ export default function Settings() {
                 <h4 className="font-medium">Paramètres avancés</h4>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <p className="text-sm text-gray-500">
                   Ces prompts pilotent réellement le chatbot (lus côté serveur à chaque réponse). Le contexte (produits/articles trouvés) est ajouté automatiquement après. Effet immédiat après enregistrement, sans redéploiement.
                 </p>
-                <div>
-                  <label className="block text-lg font-medium text-gray-700 mb-2">
-                    Prompt — Assistant client (chatbot &amp; widget)
-                  </label>
-                  <textarea
-                    value={prompts.client_prompt}
-                    onChange={(e) => setPrompts(p => ({ ...p, client_prompt: e.target.value }))}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 min-h-[220px] font-mono text-sm"
-                    rows={14}
-                  />
-                </div>
-                <div>
-                  <label className="block text-lg font-medium text-gray-700 mb-2">
-                    Prompt — Contenu marketing (mode admin)
-                  </label>
-                  <textarea
-                    value={prompts.marketing_prompt}
-                    onChange={(e) => setPrompts(p => ({ ...p, marketing_prompt: e.target.value }))}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 min-h-[160px] font-mono text-sm"
-                    rows={9}
-                  />
-                </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap gap-3">
                   <button
-                    onClick={handleSavePrompts}
-                    disabled={savingPrompts}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                    onClick={() => setEditingPrompt('client')}
+                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700"
                   >
-                    {savingPrompts ? (
-                      <><RefreshCw className="h-4 w-4 animate-spin" /> Enregistrement...</>
-                    ) : (
-                      <><Save className="h-4 w-4" /> Enregistrer les prompts</>
-                    )}
+                    <Pencil className="h-4 w-4 text-gray-500" /> Prompt — Assistant client (chatbot &amp; widget)
                   </button>
-                  {promptsSaved && (
-                    <span className="text-green-600 text-sm">Prompts enregistrés ✓ (effet immédiat)</span>
-                  )}
+                  <button
+                    onClick={() => setEditingPrompt('marketing')}
+                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700"
+                  >
+                    <Pencil className="h-4 w-4 text-gray-500" /> Prompt — Contenu marketing (mode admin)
+                  </button>
                 </div>
+                {promptsSaved && (
+                  <span className="text-green-600 text-sm">Prompts enregistrés ✓ (effet immédiat)</span>
+                )}
               </div>
             </div>
 
@@ -392,6 +372,40 @@ export default function Settings() {
       {(
         <div className="text-sm text-gray-500 text-center">
           Mise à jour automatique toutes les 30 secondes
+        </div>
+      )}
+
+      {/* Popup d'édition de prompt */}
+      {editingPrompt && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setEditingPrompt(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-semibold">
+                {editingPrompt === 'client' ? 'Prompt — Assistant client (chatbot & widget)' : 'Prompt — Contenu marketing (mode admin)'}
+              </h3>
+              <button onClick={() => setEditingPrompt(null)} className="p-1 text-gray-500 hover:text-gray-800 rounded">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto flex-1">
+              <textarea
+                value={editingPrompt === 'client' ? prompts.client_prompt : prompts.marketing_prompt}
+                onChange={(e) => setPrompts(p => editingPrompt === 'client' ? { ...p, client_prompt: e.target.value } : { ...p, marketing_prompt: e.target.value })}
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 min-h-[55vh] font-mono text-sm"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-3 p-4 border-t">
+              {promptsSaved && <span className="text-green-600 text-sm mr-auto">Enregistré ✓ (effet immédiat)</span>}
+              <button onClick={() => setEditingPrompt(null)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm">Fermer</button>
+              <button
+                onClick={handleSavePrompts}
+                disabled={savingPrompts}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm"
+              >
+                {savingPrompts ? <><RefreshCw className="h-4 w-4 animate-spin" /> Enregistrement...</> : <><Save className="h-4 w-4" /> Enregistrer</>}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
