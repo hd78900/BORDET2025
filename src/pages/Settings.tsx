@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { chatbots } from '../config/chatbots';
-import { checkVectorDbStatus, checkMistralStatus } from '../lib/api';
-import { RefreshCw, Save, CheckCircle2, Sliders, ExternalLink, Code, Copy, Check } from 'lucide-react';
+import { checkVectorDbStatus, checkApiStatus } from '../lib/api';
+import { RefreshCw, Save, Sliders, ExternalLink, Code, Copy, Check } from 'lucide-react';
 import { useConfigStore } from '../store/configStore';
 import PublicWidget from '../components/PublicWidget';
 import { supabase } from '../lib/supabase';
 
 export default function Settings() {
   const {
-    model,
     temperature,
     systemPrompt,
     marketingPrompt,
@@ -23,8 +22,6 @@ export default function Settings() {
     lastRefresh: new Date(),
     isRefreshing: false
   });
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [localConfig, setLocalConfig] = useState({
@@ -36,6 +33,7 @@ export default function Settings() {
     widgetWelcomeMessage
   });
   const [savingWidget, setSavingWidget] = useState(false);
+  const [widgetSaved, setWidgetSaved] = useState(false);
   const [prompts, setPrompts] = useState({ client_prompt: '', marketing_prompt: '' });
   const [savingPrompts, setSavingPrompts] = useState(false);
   const [promptsSaved, setPromptsSaved] = useState(false);
@@ -57,20 +55,6 @@ export default function Settings() {
         if (data) setPrompts({ client_prompt: data.client_prompt || '', marketing_prompt: data.marketing_prompt || '' });
       });
   }, []);
-
-  const handleSaveConfig = () => {
-    setIsSaving(true);
-    try {
-      useConfigStore.setState({ 
-        model,
-        ...localConfig
-      });
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const handleCopyCode = async () => {
     const code = `<script>
@@ -109,8 +93,8 @@ export default function Settings() {
         widgetWelcomeMessage: localConfig.widgetWelcomeMessage
       });
 
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      setWidgetSaved(true);
+      setTimeout(() => setWidgetSaved(false), 3000);
     } catch (error) {
       console.error('Erreur lors de la sauvegarde des paramètres du widget:', error);
     } finally {
@@ -137,7 +121,7 @@ export default function Settings() {
   const refreshStatus = async () => {
     setStats(prev => ({ ...prev, isRefreshing: true }));
     try {
-      const mistralStatus = await checkMistralStatus();
+      const apiStatusResult = await checkApiStatus();
       const vectorDbStatuses = await Promise.all(
         chatbots.map(async bot => {
           const status = await checkVectorDbStatus(bot.id);
@@ -149,7 +133,7 @@ export default function Settings() {
       );
 
       setStats({
-        apiStatus: mistralStatus.status,
+        apiStatus: apiStatusResult.status,
         vectorDbStatus: vectorDbStatuses.reduce((acc, curr) => ({
           ...acc,
           [curr.id]: curr.status
@@ -193,41 +177,11 @@ export default function Settings() {
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div className="lg:col-span-4 bg-white p-6 rounded-lg shadow">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-semibold">Configuration de l'IA</h3>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleSaveConfig}
-                  disabled={isSaving}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                >
-                  {isSaving ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      Enregistrement...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4" />
-                      Enregistrer les modifications
-                    </>
-                  )}
-                </button>
-                {saveSuccess && (
-                  <div className="flex items-center gap-2 text-green-600">
-                    <CheckCircle2 className="h-5 w-5" />
-                    <span>Modifications enregistrées</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          <h3 className="text-lg font-semibold mb-6">Configuration de l'IA</h3>
 
           <div className="space-y-8">
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-              Modèle automatique : <strong>mistral-small</strong> pour le chatbot (Vue client),
-              <strong> mistral-large</strong> pour le mode « Contenu marketing ».
+              Modèle du chatbot : <strong>Gemini 3.1 Flash Lite</strong> (via OpenRouter). Réglable et comparable dans le <strong>Banc d'essai</strong>.
             </div>
 
             <div className="space-y-6">
@@ -320,7 +274,7 @@ export default function Settings() {
                   />
                 </div>
 
-                <div className="mt-4">
+                <div className="mt-4 flex items-center gap-3">
                   <button
                     onClick={handleSaveWidgetSettings}
                     disabled={savingWidget}
@@ -338,6 +292,7 @@ export default function Settings() {
                       </>
                     )}
                   </button>
+                  {widgetSaved && <span className="text-green-600 text-sm">Enregistré ✓</span>}
                 </div>
 
                 <div className="mt-6">
@@ -386,7 +341,7 @@ export default function Settings() {
 
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-lg font-semibold mb-4">Status API Mistral</h3>
+            <h3 className="text-lg font-semibold mb-4">Statut API OpenRouter</h3>
             <div className="flex items-center space-x-2">
               <div className={`h-3 w-3 rounded-full ${
                 stats.apiStatus === 'operational' ? 'bg-green-500' : 'bg-red-500'

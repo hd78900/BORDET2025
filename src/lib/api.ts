@@ -273,7 +273,7 @@ export async function checkVectorDbStatus(botId: string) {
   }
 }
 
-export async function checkMistralStatus() {
+export async function checkApiStatus() {
   try {
     const headers = await getAuthHeaders();
     const res = await fetch(`${MISTRAL_PROXY_URL}/models`, { headers });
