@@ -290,7 +290,8 @@ Deno.serve(async (req: Request) => {
           method: "POST",
           headers: { Authorization: `Bearer ${orKey}`, "Content-Type": "application/json",
                      "HTTP-Referer": "https://chatbordet.netlify.app", "X-Title": "Bordet Assistant" },
-          body: JSON.stringify({ model: orModel, messages, temperature: TEMPERATURE, max_tokens: maxTokens, stream: false }),
+          // reasoning désactivé : latence prod (un chatbot ne peut pas raisonner 1-3 min/réponse)
+          body: JSON.stringify({ model: orModel, messages, temperature: TEMPERATURE, max_tokens: maxTokens, stream: false, reasoning: { enabled: false } }),
         })
       : await mistral("/chat/completions", { model, messages, temperature: TEMPERATURE, max_tokens: maxTokens, stream: false });
     const data = await cr.json().catch(() => null);
