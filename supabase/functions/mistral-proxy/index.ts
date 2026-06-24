@@ -273,15 +273,26 @@ Deno.serve(async (req: Request) => {
       const head = u ? `[${type}${ti}](${u})` : `[${type}${ti}]`;
       return `${head}\n${m.content}`;
     }).filter(Boolean).join("\n\n");
-    // prompts éditables depuis le backoffice (widget_settings) ; fallback constantes
-    const { data: ws } = await sb.from("widget_settings").select("client_prompt, marketing_prompt").eq("id", 1).maybeSingle();
+    // prompts éditables + modèle de chat configurable depuis le backoffice (widget_settings) ; fallback constantes
+    const { data: ws } = await sb.from("widget_settings").select("client_prompt, marketing_prompt, chat_model").eq("id", 1).maybeSingle();
     const clientP = (ws?.client_prompt || "").trim() || CLIENT_PROMPT;
     const mktP = (ws?.marketing_prompt || "").trim() || MARKETING_PROMPT;
     const sys = `${marketing ? mktP : clientP}\n\nContexte de la base de connaissances:\n${context}`;
     const messages = [{ role: "system", content: sys }, ...history, { role: "user", content: userMessage }];
 
-    // 5) génération
-    const cr = await mistral("/chat/completions", { model, messages, temperature: TEMPERATURE, max_tokens: maxTokens, stream: false });
+    // 5) génération : chat client -> OpenRouter si configuré (modèle FORCÉ serveur via widget_settings.chat_model,
+    //    ex. "qwen/qwen3.7-plus") ; sinon Mistral (marketing reste large). Embeddings restent Mistral.
+    const orKey = Deno.env.get("OPENROUTER_API_KEY");
+    const orModel = (ws?.chat_model || "").trim();
+    const useOR = !marketing && !!orKey && !!orModel;
+    const cr = useOR
+      ? await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${orKey}`, "Content-Type": "application/json",
+                     "HTTP-Referer": "https://chatbordet.netlify.app", "X-Title": "Bordet Assistant" },
+          body: JSON.stringify({ model: orModel, messages, temperature: TEMPERATURE, max_tokens: maxTokens, stream: false }),
+        })
+      : await mistral("/chat/completions", { model, messages, temperature: TEMPERATURE, max_tokens: maxTokens, stream: false });
     const data = await cr.json().catch(() => null);
     const used = cr.ok && typeof data?.usage?.total_tokens === "number" ? data.usage.total_tokens : reserveN;
     await reconcile(used, reserveN);
