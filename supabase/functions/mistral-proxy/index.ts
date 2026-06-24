@@ -110,6 +110,8 @@ function sanitizeUrls(response: string, matches: Array<{ content?: string; metad
       valid.add(url);
       if (title) { urlToTitle.set(url, title); nameToUrl.set(norm(title), url); }
     }
+    // URLs présentes dans le CONTENU des chunks (ex. chunk-catalogue « Lien : … ») = réelles (issues du corpus)
+    for (const cm of (m.content || "").matchAll(/https:\/\/www\.bordet\.fr\/[^\s)\]]+/g)) valid.add(cm[0]);
     ctxText += " " + (m.content || "");
     for (const pm of (m.content || "").matchAll(/(\d+(?:[.,]\d+)?)\s*(?:€|EUR)/gi)) {
       ctxPrices.add(pm[1].replace(",", ".").replace(/\.0+$/, ""));
