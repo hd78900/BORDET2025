@@ -200,28 +200,42 @@ Deno.serve(async (req: Request) => {
     if (!(await reserve(reserveN)))
       return json({ error: "Service très demandé, merci de réessayer plus tard." }, 503);
 
-    // requête de retrieval reformulée avec le contexte (derniers tours user) : les questions de suivi gardent le sujet
+    // Retrieval robuste multi-tour : on lance DEUX requêtes et on fusionne.
+    //  (a) message courant SEUL   -> capte l'intention explicite (ex. "un trusquin ?")
+    //  (b) requête history-aware  -> capte les suivis elliptiques (ex. "d'autres marques ?")
+    // Sans (a), le sujet du tour précédent (ex. "scie") dilue le nouveau et fait rater ses produits.
+    type Match = { content: string; metadata?: { url?: string; title?: string }; similarity?: number };
     const recentUser = history.filter((m) => m.role === "user").slice(-2).map((m) => m.content);
-    const retrievalQuery = [...recentUser, userMessage].join("\n").slice(0, MAX_EMBED_CHARS);
+    const qSolo = userMessage.slice(0, MAX_EMBED_CHARS);
+    const qHist = [...recentUser, userMessage].join("\n").slice(0, MAX_EMBED_CHARS);
+    const queries = recentUser.length && qHist !== qSolo ? [qSolo, qHist] : [qSolo];
 
-    // 1) embed (serveur)
-    const er = await mistral("/embeddings", { model: EMBED_MODEL, input: retrievalQuery });
-    if (!er.ok) { await reconcile(0, reserveN); return json({ error: "embedding failed" }, 502); }
-    const embedding = (await er.json())?.data?.[0]?.embedding;
-    if (!Array.isArray(embedding)) { await reconcile(0, reserveN); return json({ error: "embedding failed" }, 502); }
+    // 1) embeddings (parallèle)
+    const embRes = await Promise.all(queries.map((q) => mistral("/embeddings", { model: EMBED_MODEL, input: q })));
+    const embeddings: number[][] = [];
+    for (const er of embRes) {
+      const e = er.ok ? (await er.json())?.data?.[0]?.embedding : null;
+      if (!Array.isArray(e)) { await reconcile(0, reserveN); return json({ error: "embedding failed" }, 502); }
+      embeddings.push(e);
+    }
 
-    // 2) retrieval (serveur) via match_documents (anon -> livres exclus du public)
-    const mr = await fetch(`${env("SUPABASE_URL")}/rest/v1/rpc/match_documents`, {
-      method: "POST",
-      headers: { apikey: env("SUPABASE_ANON_KEY"), Authorization: `Bearer ${env("SUPABASE_ANON_KEY")}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ query_embedding: `[${embedding.join(",")}]`, match_count: MATCH_COUNT, filter_bot_id: "bot1" }),
-    });
-    const raw: Array<{ content: string; metadata?: { url?: string; title?: string } }> = mr.ok ? await mr.json() : [];
-    const seen = new Set<string>();   // dédup par URL : un même article/produit ne monopolise pas plusieurs slots
-    const matches = raw.filter((m) => {
+    // 2) retrieval (parallèle) via match_documents (anon -> livres exclus du public)
+    const lists: Match[][] = await Promise.all(embeddings.map((emb) =>
+      fetch(`${env("SUPABASE_URL")}/rest/v1/rpc/match_documents`, {
+        method: "POST",
+        headers: { apikey: env("SUPABASE_ANON_KEY"), Authorization: `Bearer ${env("SUPABASE_ANON_KEY")}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ query_embedding: `[${emb.join(",")}]`, match_count: MATCH_COUNT, filter_bot_id: "bot1" }),
+      }).then((r) => (r.ok ? r.json() : [])).catch(() => [] as Match[])
+    ));
+
+    // fusion : meilleure similarité par URL, tri décroissant, top MATCH_COUNT
+    const byKey = new Map<string, Match>();
+    for (const list of lists) for (const m of list) {
       const key = m.metadata?.url ?? m.content.slice(0, 60);
-      if (seen.has(key)) return false; seen.add(key); return true;
-    });
+      const prev = byKey.get(key);
+      if (!prev || (m.similarity ?? 0) > (prev.similarity ?? 0)) byKey.set(key, m);
+    }
+    const matches = [...byKey.values()].sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0)).slice(0, MATCH_COUNT);
 
     // 3) aucun contexte -> pas d'appel LLM, message canné (donc JAMAIS de réponse "libre")
     if (!matches.length) {
