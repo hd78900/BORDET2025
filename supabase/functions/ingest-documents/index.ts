@@ -218,7 +218,8 @@ async function buildRows(input: {
         source_uid: sourceGroup,
         content,
         metadata: { ...baseMeta, brand: input.brand || null, sku: input.sku || null, price: input.price ?? null,
-                    availability: input.availability || null, source_group: sourceGroup, chunk_index: 0, n_chunks: 1 },
+                    availability: input.availability || null, source_group: sourceGroup, chunk_index: 0, n_chunks: 1,
+                    content_hash: await sha1Hex(normForHash(content), 16) },
       }],
     };
   }
@@ -241,7 +242,10 @@ async function buildRows(input: {
     rows.push({
       source_uid: `${sourceGroup}#${String(i).padStart(4, "0")}`,
       content,
-      metadata: { ...baseMeta, source_group: sourceGroup, chunk_index: i, n_chunks: windows.length },
+      // hash de dédup calculé sur la FENÊTRE brute (sans titre ni "Source :") :
+      // le même corps collé sous un autre titre reste détecté comme doublon EXACT (garde A).
+      metadata: { ...baseMeta, source_group: sourceGroup, chunk_index: i, n_chunks: windows.length,
+                  content_hash: await sha1Hex(normForHash(windows[i]), 16) },
     });
   }
   return { rows, sourceGroup };
@@ -466,10 +470,8 @@ Deno.serve(async (req: Request) => {
         warnings.push("prix détecté dans un contenu non-produit — les prix doivent vivre dans les fiches produit (contradiction assurée au prochain changement de prix)");
     }
 
-    // hash par chunk (clé de dédup exacte, stockée en metadata pour les checks futurs)
-    for (const r of rows) r.metadata.content_hash = await sha1Hex(normForHash(r.content), 16);
-
     // --- GARDE A : doublon EXACT parmi les contenus déjà ajoutés via l'UI ---
+    // (content_hash calculé dans buildRows sur la fenêtre brute, hors titre/Source)
     // (l'historique crawlé n'a pas de content_hash : lui est couvert par la garde B vectorielle)
     {
       const hashes = rows.slice(0, 100).map((r) => String(r.metadata.content_hash));
