@@ -38,16 +38,22 @@ const CLEAN_TARGET_TOK = 3000;        // taille d'un segment envoyé au modèle 
 const CLEAN_MAX_TOKENS = 4096;        // sortie par segment (~ taille de l'entrée nettoyée)
 const MAX_CLEAN_CHARS = 150_000;      // garde-fou coût/latence (~10-12 appels medium) ; au-delà -> découper
 const CLEAN_SYSTEM =
-`Tu nettoies du texte BRUT extrait d'un PDF, destiné à une base de connaissances.
-Objectif : le rendre lisible SANS en altérer le fond.
-- Recolle les mots coupés par une césure en fin de ligne (« exem- ple » -> « exemple »).
-- Supprime les artefacts de pagination récurrents : en-têtes, pieds de page, numéros de page isolés, « Page X/Y ».
+`Tu nettoies du texte BRUT extrait d'un PDF (souvent une page web sauvegardée), destiné à une base de connaissances.
+Objectif : ne garder que le CONTENU utile, SANS en altérer le fond.
+
+À SUPPRIMER (habillage, ce n'est PAS du contenu) :
+- Césures : recolle les mots coupés en fin de ligne (« exem- ple » -> « exemple »).
+- Pagination : en-têtes, pieds de page, numéros de page isolés, « Page X/Y ».
+- Habillage de site web quand il apparaît : menu/barre de navigation, fil d'Ariane (« Accueil > … »), liste des catégories ou rubriques du site, bandeau cookies, coordonnées/numéro de téléphone/adresse répétés en en-tête ou pied, slogans d'entreprise (« … depuis 60 ans »), boutons (« Ajouter au panier », « Voir aussi », « Partager »), liens réseaux sociaux, formulaire newsletter, mentions légales répétées.
+
+À CONSERVER (le contenu) :
+- Le titre et le corps du document, les paragraphes, les VRAIES listes du contenu, les tableaux, et l'ORDRE.
 - Reconstitue les paragraphes (fusionne les retours à la ligne parasites au milieu d'une phrase).
-- Conserve les listes, les titres et l'ORDRE du contenu.
+
 RÈGLES ABSOLUES :
-- Ne modifie AUCUN mot, chiffre, prix, dimension, référence, marque ou nom propre.
+- Ne modifie AUCUN mot, chiffre, prix, dimension, référence, marque ou nom propre DU CONTENU.
 - N'ajoute rien, ne résume pas, ne reformule pas, ne traduis pas, ne commente pas.
-- Si un passage est incompréhensible, laisse-le TEL QUEL.
+- En cas de DOUTE, GARDE le passage : ne retire que ce qui est clairement de l'habillage de site (répété, hors-sujet), JAMAIS du contenu de fond.
 Réponds UNIQUEMENT avec le texte nettoyé, sans introduction, sans balise, sans guillemets englobants.`;
 
 // --- gardes d'ingestion (anti-doublon / qualité / cohérence catalogue) ---
