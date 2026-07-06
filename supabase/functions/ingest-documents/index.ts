@@ -258,21 +258,20 @@ async function crawlBordet(rawUrl: string): Promise<{
 }> {
   const url = rawUrl.trim();
   if (!/^https?:\/\/(www\.)?bordet\.fr\//i.test(url)) throw new Error("URL hors bordet.fr");
-  // En-têtes de VRAI navigateur : l'infra Supabase (IP datacenter) est sinon bloquée en 403 par le WAF Oxatis.
-  const res = await fetch(url, {
-    redirect: "follow",
+  // bordet.fr (Oxatis) bloque en 403 les IP datacenter — dont l'edge Supabase (vérifié). On passe donc
+  // par le lecteur Jina (non bloqué) en mode HTML : il renvoie la page COMPLÈTE, y compris
+  // <script id="productData">, donc l'extraction structurée ci-dessous reste identique.
+  const jinaKey = Deno.env.get("JINA_API_KEY");   // optionnel : quotas plus élevés si défini
+  const res = await fetch(`https://r.jina.ai/${url}`, {
     headers: {
-      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-      "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
-      "Referer": "https://www.bordet.fr/",
+      "X-Return-Format": "html",
+      "Accept": "text/html",
+      ...(jinaKey ? { Authorization: `Bearer ${jinaKey}` } : {}),
     },
   });
-  if (res.status === 403)
-    throw new Error("bordet.fr a refusé la requête (403, protection anti-bot). Astuce : ouvrez la page, copiez son texte et utilisez « Coller du texte ».");
-  if (!res.ok) throw new Error(`fetch ${res.status}`);
-  // pages servies en ISO-8859-1 avec octets cp1252 (’ = 0x92) -> windows-1252 remappe correctement
-  const html = new TextDecoder("windows-1252").decode(await res.arrayBuffer());
+  if (res.status === 429) throw new Error("service de lecture temporairement saturé (429) — réessayez dans un instant");
+  if (!res.ok) throw new Error(`lecture de la page impossible (${res.status})`);
+  const html = await res.text();   // Jina renvoie de l'UTF-8 propre (plus besoin du remap cp1252)
   const doc = new DOMParser().parseFromString(html, "text/html");
   if (!doc) throw new Error("parse HTML impossible");
 
