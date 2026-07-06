@@ -28,6 +28,7 @@ export default function Knowledge() {
   const [busy, setBusy] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [cleaning, setCleaning] = useState(false);
+  const [pdfMarketingOnly, setPdfMarketingOnly] = useState(false);   // false = public (manual), true = marketing (book)
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
@@ -124,14 +125,15 @@ export default function Knowledge() {
 
   // Import PDF « en un geste » : extraction -> nettoyage IA -> ajout auto (titre = nom du fichier),
   // aucun champ à remplir. Le résultat est relisible / renommable / supprimable dans l'onglet « Gérer ».
-  const addPdfContent = async (title: string, body: string, force = false): Promise<void> => {
+  const addPdfContent = async (title: string, body: string, type: IngestType, force = false): Promise<void> => {
     try {
-      const r = await ingestUpsert({ type: 'manual', title, body }, force);
-      setMsg({ kind: 'ok', text: `« ${r.title} » importé (${r.chunks} chunk${r.chunks > 1 ? 's' : ''}).` });
+      const r = await ingestUpsert({ type, title, body }, force);
+      const where = type === 'book' ? 'marketing seulement' : 'public';
+      setMsg({ kind: 'ok', text: `« ${r.title} » importé (${r.chunks} chunk${r.chunks > 1 ? 's' : ''}, ${where}).` });
       loadList();
     } catch (e) {
       if (e instanceof IngestNeedsConfirm) {
-        if (confirmWarnings(e.warnings)) return addPdfContent(title, body, true);
+        if (confirmWarnings(e.warnings)) return addPdfContent(title, body, type, true);
         setMsg({ kind: 'err', text: 'Import annulé.' });
         return;
       }
@@ -141,6 +143,7 @@ export default function Knowledge() {
 
   const onPickPdf = async (file: File | undefined) => {
     if (!file) return;
+    const type: IngestType = pdfMarketingOnly ? 'book' : 'manual';
     const title = file.name.replace(/\.pdf$/i, '').trim() || 'Document PDF';
     setPdfBusy(true);
     setMsg({ kind: 'ok', text: `« ${title} » — extraction du texte…` });
@@ -163,7 +166,7 @@ export default function Knowledge() {
     // ajout automatique
     setBusy(true);
     setMsg({ kind: 'ok', text: `« ${title} » — ajout à la base…` });
-    await addPdfContent(title, cleaned);
+    await addPdfContent(title, cleaned, type);
     setBusy(false);
   };
 
@@ -236,6 +239,19 @@ export default function Knowledge() {
               <p className="text-sm text-gray-500">
                 Déposez un PDF : le texte est extrait dans votre navigateur, nettoyé par l'IA, puis <strong>ajouté automatiquement</strong> (titre = nom du fichier). Rien d'autre à remplir.
               </p>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-gray-500">Visible par :</span>
+                <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+                  <button type="button" disabled={pdfBusy || cleaning || busy} onClick={() => setPdfMarketingOnly(false)}
+                    className={`px-3 py-1.5 ${!pdfMarketingOnly ? 'bg-red-950 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-50`}>
+                    Public (widget)
+                  </button>
+                  <button type="button" disabled={pdfBusy || cleaning || busy} onClick={() => setPdfMarketingOnly(true)}
+                    className={`px-3 py-1.5 ${pdfMarketingOnly ? 'bg-red-950 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-50`}>
+                    Marketing seulement
+                  </button>
+                </div>
+              </div>
               <label className={`flex flex-col items-center justify-center gap-2 px-4 py-10 border-2 border-dashed border-gray-300 rounded-lg ${(pdfBusy || cleaning || busy) ? 'opacity-60' : 'cursor-pointer hover:bg-gray-50'}`}>
                 {(pdfBusy || cleaning || busy)
                   ? <Loader2 className="h-6 w-6 animate-spin text-red-950" />
@@ -246,7 +262,12 @@ export default function Knowledge() {
                 <input type="file" accept="application/pdf" className="hidden" disabled={pdfBusy || cleaning || busy}
                   onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; onPickPdf(f); }} />
               </label>
-              <p className="text-xs text-gray-400">Contenu ajouté visible côté widget ; relisez / renommez / supprimez dans l'onglet « Gérer ». PDF scannés (images) non pris en charge : pas d'OCR.</p>
+              <p className="text-xs text-gray-400">
+                {pdfMarketingOnly
+                  ? 'Marketing seulement : interrogeable uniquement en mode marketing (admin), jamais par le widget public.'
+                  : 'Public : le contenu pourra être utilisé dans les réponses du widget client.'}
+                {' '}Relisez / renommez / supprimez dans l'onglet « Gérer ». PDF scannés (images) non pris en charge : pas d'OCR.
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
