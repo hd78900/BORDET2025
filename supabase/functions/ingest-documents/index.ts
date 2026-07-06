@@ -259,6 +259,19 @@ async function buildRows(input: {
 }
 
 // ---------- crawl bordet.fr ----------
+// Convertit un fragment HTML (description produit Oxatis, corps d'article) en texte lisible :
+// décode les entités (&eacute; -> é), transforme <br>/<li>/<p> en sauts de ligne / puces, retire les balises.
+function htmlToText(html: string): string {
+  if (!html) return "";
+  const withBreaks = html
+    .replace(/<\s*br\s*\/?>/gi, "\n")
+    .replace(/<\s*li[^>]*>/gi, "\n• ")
+    .replace(/<\/\s*(p|div|h[1-6]|li|tr|ul|ol)\s*>/gi, "\n");
+  const d = new DOMParser().parseFromString(withBreaks, "text/html");
+  const t = d?.body?.textContent ?? d?.textContent ?? "";
+  return t.replace(/ /g, " ").replace(/[ \t]+\n/g, "\n").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 async function crawlBordet(rawUrl: string): Promise<{
   type: IngestType; title: string; url: string; body: string;
   brand?: string; price?: number | null; sku?: string; availability?: string;
@@ -288,7 +301,7 @@ async function crawlBordet(rawUrl: string): Promise<{
     if (!raw) throw new Error("productData introuvable (page produit ?)");
     const pd = JSON.parse(raw);
     const offer = Array.isArray(pd.offers) ? pd.offers[0] : pd.offers;
-    let desc = (pd.description || "").toString().trim();
+    let desc = htmlToText((pd.description || "").toString());   // description = HTML Oxatis -> texte propre
     desc = desc.replace(/^Tout savoir sur l'article\s+.*?(?:\n|$)/i, "").trim();
     return {
       type: "product", url, title: (pd.name || "").toString().trim(),
@@ -304,7 +317,7 @@ async function crawlBordet(rawUrl: string): Promise<{
     const title = doc.querySelector("h1.articletitle")?.textContent?.trim()
       || doc.querySelector("h1")?.textContent?.trim() || url;
     const bodyEl = doc.querySelector(".PBItemDesc1");
-    const body = (bodyEl?.textContent || "").replace(/ /g, " ").replace(/\n{3,}/g, "\n\n").trim();
+    const body = htmlToText(bodyEl?.innerHTML || "").replace(/ /g, " ").replace(/\n{3,}/g, "\n\n").trim();
     if (!body) throw new Error("corps d'article introuvable (.PBItemDesc1)");
     return { type: "article", url, title, body };
   }

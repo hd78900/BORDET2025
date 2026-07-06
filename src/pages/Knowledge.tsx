@@ -96,19 +96,27 @@ export default function Knowledge() {
   // Crawl = APERÇU : récupère le contenu et le charge dans le formulaire pour relecture ;
   // rien n'est écrit tant que l'admin n'a pas cliqué « Ajouter à la base ».
   const previewCrawl = async () => {
-    setBusy(true); setMsg(null);
+    setBusy(true); setMsg({ kind: 'ok', text: 'Récupération de la page…' });
     try {
       const c = await ingestCrawlPreview(crawlUrl.trim());
+      setBusy(false);
+      // passe de nettoyage IA (comme le PDF) : décode déjà côté serveur, l'IA finalise la mise en forme
+      setCleaning(true);
+      setMsg({ kind: 'ok', text: 'Contenu récupéré — nettoyage IA…' });
+      let body = c.body || '';
+      try { if (body.trim()) body = await ingestClean(body); } catch { /* fallback : texte extrait */ }
+      setCleaning(false);
       setForm({
-        type: c.type, title: c.title, url: c.url || '', body: c.body || '',
+        type: c.type, title: c.title, url: c.url || '', body,
         brand: c.brand || '', sku: c.sku || '', price: c.price ?? null, availability: c.availability || '',
       });
       setCrawlUrl('');
       setMode('paste');
-      setMsg({ kind: 'ok', text: `Contenu récupéré depuis l'URL — relisez / corrigez, puis « Ajouter à la base ».` });
+      setMsg({ kind: 'ok', text: `Contenu récupéré et nettoyé — relisez / corrigez, puis « Ajouter à la base ».` });
     } catch (e) {
+      setBusy(false); setCleaning(false);
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
-    } finally { setBusy(false); }
+    }
   };
 
   const runClean = async () => {
@@ -221,9 +229,9 @@ export default function Knowledge() {
               <input value={crawlUrl} onChange={(e) => setCrawlUrl(e.target.value)}
                 placeholder="https://www.bordet.fr/...-c2x1234"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-              <button onClick={previewCrawl} disabled={busy || !crawlUrl.trim()}
+              <button onClick={previewCrawl} disabled={busy || cleaning || !crawlUrl.trim()}
                 className="flex items-center gap-2 px-4 py-2 bg-red-950 text-white rounded-lg text-sm font-medium hover:bg-red-800 disabled:opacity-50">
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />} Récupérer pour relecture
+                {(busy || cleaning) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />} Récupérer pour relecture
               </button>
             </div>
           ) : mode === 'pdf' ? (
