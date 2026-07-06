@@ -2,7 +2,6 @@ import React, { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
-import Admin from './pages/Admin';
 // lazy : embarque pdf.js — chargé uniquement à l'ouverture de la page (hors bundle du widget public)
 const Knowledge = lazy(() => import('./pages/Knowledge'));
 // lazy : embarque recharts — même logique
@@ -101,7 +100,8 @@ function App() {
               </PrivateRoute>
             } 
           />
-          <Route path="admin" element={<Admin />} />
+          {/* la gestion utilisateur vit désormais dans /settings */}
+          <Route path="admin" element={<Navigate to="/settings" replace />} />
           <Route
             path="knowledge"
             element={

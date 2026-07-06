@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { chatbots } from '../config/chatbots';
 import { checkVectorDbStatus, checkApiStatus } from '../lib/api';
-import { RefreshCw, Save, Sliders, ExternalLink, Code, Copy, Check, Pencil, X } from 'lucide-react';
+import { RefreshCw, Save, Sliders, ExternalLink, Code, Copy, Check, Pencil, X, Users } from 'lucide-react';
 import { useConfigStore } from '../store/configStore';
 import PublicWidget from '../components/PublicWidget';
 import { supabase } from '../lib/supabase';
+import Admin from './Admin';
 
 export default function Settings() {
   const {
@@ -367,6 +368,13 @@ export default function Settings() {
             </div>
           )}
         </div>
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <Users className="h-5 w-5 text-gray-500" /> Gestion des utilisateurs
+        </h3>
+        <Admin />
       </div>
 
       {(
