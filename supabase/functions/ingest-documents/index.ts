@@ -258,7 +258,18 @@ async function crawlBordet(rawUrl: string): Promise<{
 }> {
   const url = rawUrl.trim();
   if (!/^https?:\/\/(www\.)?bordet\.fr\//i.test(url)) throw new Error("URL hors bordet.fr");
-  const res = await fetch(url, { headers: { "User-Agent": "BordetIngestBot/1.0" } });
+  // En-têtes de VRAI navigateur : l'infra Supabase (IP datacenter) est sinon bloquée en 403 par le WAF Oxatis.
+  const res = await fetch(url, {
+    redirect: "follow",
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+      "Referer": "https://www.bordet.fr/",
+    },
+  });
+  if (res.status === 403)
+    throw new Error("bordet.fr a refusé la requête (403, protection anti-bot). Astuce : ouvrez la page, copiez son texte et utilisez « Coller du texte ».");
   if (!res.ok) throw new Error(`fetch ${res.status}`);
   // pages servies en ISO-8859-1 avec octets cp1252 (’ = 0x92) -> windows-1252 remappe correctement
   const html = new TextDecoder("windows-1252").decode(await res.arrayBuffer());
