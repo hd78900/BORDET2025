@@ -51,7 +51,7 @@ RÈGLES ABSOLUES :
 Réponds UNIQUEMENT avec le texte nettoyé, sans introduction, sans balise, sans guillemets englobants.`;
 
 // --- gardes d'ingestion (anti-doublon / qualité / cohérence catalogue) ---
-const MIN_BODY_CHARS = 200;   // en dessous : inutile au RAG (bruit)
+const MIN_BODY_CHARS = 40;    // en dessous : probablement un collage accidentel -> AVERTISSEMENT (pas un blocage)
 const SIM_BLOCK = 0.97;       // similarité cosine ≥ 0.97 = quasi-doublon -> refus
 const SIM_WARN = 0.90;        // 0.90-0.97 = suspect -> confirmation admin requise
 
@@ -455,8 +455,9 @@ Deno.serve(async (req: Request) => {
 
     // --- GARDE C : qualité du texte (types chunkés ; une fiche produit courte est légitime) ---
     if (src.type !== "product") {
+      // texte très court : on n'empêche plus (note délibérée légitime) -> simple avertissement
       if (src.body.trim().length < MIN_BODY_CHARS)
-        return json({ error: `contenu trop court (< ${MIN_BODY_CHARS} caractères) pour être utile au RAG` }, 400);
+        warnings.push(`contenu très court (${src.body.trim().length} caractères) — peu de matière pour le RAG`);
       const moji = (src.body.match(/Ã.|â€.|�/g) || []).length;
       if (moji >= 5)
         return json({ error: `encodage cassé détecté (${moji} artefacts type « Ã© / â€™ ») — recollez le texte depuis la source` }, 400);
