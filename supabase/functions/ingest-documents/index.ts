@@ -225,7 +225,7 @@ async function buildRows(input: {
         content,
         metadata: { ...baseMeta, brand: input.brand || null, sku: input.sku || null, price: input.price ?? null,
                     availability: input.availability || null, source_group: sourceGroup, chunk_index: 0, n_chunks: 1,
-                    content_hash: await sha1Hex(normForHash(content), 16) },
+                    content_hash: await sha1Hex(normForHash(content), 16), raw_body: body },
       }],
     };
   }
@@ -250,8 +250,9 @@ async function buildRows(input: {
       content,
       // hash de dédup calculé sur la FENÊTRE brute (sans titre ni "Source :") :
       // le même corps collé sous un autre titre reste détecté comme doublon EXACT (garde A).
+      // raw_body (texte source complet) stocké UNE fois, sur le 1er chunk, pour l'édition/relecture.
       metadata: { ...baseMeta, source_group: sourceGroup, chunk_index: i, n_chunks: windows.length,
-                  content_hash: await sha1Hex(normForHash(windows[i]), 16) },
+                  content_hash: await sha1Hex(normForHash(windows[i]), 16), ...(i === 0 ? { raw_body: body } : {}) },
     });
   }
   return { rows, sourceGroup };
@@ -391,27 +392,55 @@ Deno.serve(async (req: Request) => {
     return json({ ok: true, cleaned: out.join("\n\n"), segments: segments.length });
   }
 
-  // ---- LIST : sources ajoutées via l'UI (groupées, sans embedding ni content) ----
+  // ---- LIST : sources ajoutées via l'UI (groupées ; champs ciblés -> ne tire PAS raw_body/content) ----
   if (action === "list") {
     const { data, error } = await sb.from("documents")
-      .select("source_uid, metadata")
+      .select("source_uid, sg:metadata->>source_group, ti:metadata->>title, st:metadata->>source_type, u:metadata->>url, aa:metadata->>added_at, ab:metadata->>added_by")
       .eq("bot_id", BOT_ID)
       .eq("metadata->>added_via", "admin-ui")
       .limit(5000);
     if (error) return json({ error: error.message }, 500);
-    type Meta = { source_group?: string; title?: string; source_type?: string; url?: string; added_at?: string; added_by?: string };
+    type Flat = { source_uid: string; sg: string | null; ti: string | null; st: string | null; u: string | null; aa: string | null; ab: string | null };
     type Group = { source_group: string; title?: string; source_type?: string; url?: string; added_at?: string; added_by?: string; n_chunks: number };
     const groups = new Map<string, Group>();
-    for (const r of (data ?? []) as Array<{ source_uid: string; metadata: Meta }>) {
-      const m: Meta = r.metadata || {};
-      const g = m.source_group || r.source_uid;
-      const cur = groups.get(g) || { source_group: g, title: m.title, source_type: m.source_type,
-                                     url: m.url, added_at: m.added_at, added_by: m.added_by, n_chunks: 0 };
+    for (const r of (data ?? []) as Flat[]) {
+      const g = r.sg || r.source_uid;
+      const cur = groups.get(g) || { source_group: g, title: r.ti ?? undefined, source_type: r.st ?? undefined,
+                                     url: r.u ?? undefined, added_at: r.aa ?? undefined, added_by: r.ab ?? undefined, n_chunks: 0 };
       cur.n_chunks += 1;
       groups.set(g, cur);
     }
     const sources = [...groups.values()].sort((a, b) => String(b.added_at).localeCompare(String(a.added_at)));
     return json({ ok: true, sources });
+  }
+
+  // ---- GET : texte source d'une source (pour relire / éditer depuis « Gérer ») ----
+  if (action === "get") {
+    const g = body?.source_group;
+    if (!g || typeof g !== "string") return json({ error: "source_group requis" }, 400);
+    const { data, error } = await sb.from("documents")
+      .select("content, metadata")
+      .eq("bot_id", BOT_ID).eq("metadata->>source_group", g)
+      .order("source_uid").limit(MAX_CHUNKS);
+    if (error) return json({ error: error.message }, 500);
+    if (!data || !data.length) return json({ error: "source introuvable" }, 404);
+    const m0 = (data[0].metadata || {}) as Record<string, unknown>;
+    // corps éditable : raw_body si présent ; sinon reconstruction best-effort en retirant les habillages
+    let bodyText = typeof m0.raw_body === "string" ? m0.raw_body : "";
+    if (!bodyText) {
+      const stype = m0.source_type, title = String(m0.title ?? ""), u = m0.url ? String(m0.url) : "";
+      const esc = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      bodyText = (data as Array<{ content: string }>).map((r) => {
+        let c = String(r.content ?? "");
+        if (stype === "book") c = c.replace(/^Extrait du document « .* » : /, "");
+        else if (title) c = c.replace(new RegExp("^" + esc + "\\n\\n"), "");
+        if (u) c = c.replace("\nSource : " + u, "").replace("\nLien : " + u, "");
+        return c.trim();
+      }).join("\n\n");
+    }
+    return json({ ok: true, source_group: g, title: m0.title ?? "", type: m0.source_type ?? "manual",
+                  url: m0.url ?? null, brand: m0.brand ?? null, sku: m0.sku ?? null,
+                  price: m0.price ?? null, availability: m0.availability ?? null, body: bodyText });
   }
 
   // ---- DELETE : supprime tous les chunks d'une source ----

@@ -4,7 +4,7 @@ import {
   Database, FileText, Link2, Upload, Trash2, RefreshCw, Plus, Check, X, Pencil, Loader2, AlertCircle, Sparkles,
 } from 'lucide-react';
 import {
-  ingestUpsert, ingestCrawl, ingestList, ingestDelete, ingestClean, extractPdfText, previewChunkCount,
+  ingestUpsert, ingestCrawl, ingestList, ingestDelete, ingestClean, ingestGet, extractPdfText, previewChunkCount,
   IngestNeedsConfirm, type IngestType, type KnowledgeSource, type UpsertInput,
 } from '../lib/ingest';
 
@@ -129,7 +129,7 @@ export default function Knowledge() {
     try {
       const r = await ingestUpsert({ type, title, body }, force);
       const where = type === 'book' ? 'marketing seulement' : 'public';
-      setMsg({ kind: 'ok', text: `« ${r.title} » importé (${r.chunks} chunk${r.chunks > 1 ? 's' : ''}, ${where}).` });
+      setMsg({ kind: 'ok', text: `« ${r.title} » importé (${r.chunks} chunk${r.chunks > 1 ? 's' : ''}, ${where}) — relisez-le dans l'onglet « Gérer » (crayon).` });
       loadList();
     } catch (e) {
       if (e instanceof IngestNeedsConfirm) {
@@ -170,11 +170,21 @@ export default function Knowledge() {
     setBusy(false);
   };
 
-  const editSource = (s: KnowledgeSource) => {
+  const editSource = async (s: KnowledgeSource) => {
     setTab('add'); setMode('paste');
-    setForm({ ...emptyForm, type: s.source_type, title: s.title, url: s.url || '' });
-    setMsg({ kind: 'ok', text: `Édition de « ${s.title} » : recollez le contenu à jour puis Ajouter (même titre = écrasement).` });
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    setBusy(true);
+    setMsg({ kind: 'ok', text: `Chargement de « ${s.title} »…` });
+    try {
+      const c = await ingestGet(s.source_group);
+      setForm({
+        type: c.type, title: c.title, url: c.url || '', body: c.body || '',
+        brand: c.brand || '', sku: c.sku || '', price: c.price ?? null, availability: c.availability || '',
+      });
+      setMsg({ kind: 'ok', text: `« ${c.title} » chargé — modifiez le contenu puis « Ajouter à la base » (garder le même titre = écrasement).` });
+    } catch (e) {
+      setMsg({ kind: 'err', text: `Chargement impossible : ${e instanceof Error ? e.message : String(e)}` });
+    } finally { setBusy(false); }
   };
 
   const removeSource = async (s: KnowledgeSource) => {

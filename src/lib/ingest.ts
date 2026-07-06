@@ -90,6 +90,15 @@ export function ingestClean(text: string) {
   return call<{ ok: true; cleaned: string; segments: number }>({ action: 'clean', text }).then((r) => r.cleaned);
 }
 
+// Récupère le texte source complet d'une source (pour relire / éditer depuis « Gérer »).
+export interface KnowledgeContent {
+  source_group: string; title: string; type: IngestType; url: string | null;
+  brand: string | null; sku: string | null; price: number | null; availability: string | null; body: string;
+}
+export function ingestGet(source_group: string) {
+  return call<{ ok: true } & KnowledgeContent>({ action: 'get', source_group });
+}
+
 // --- extraction du texte d'un PDF, côté navigateur (le PDF ne quitte pas le poste) ---
 export async function extractPdfText(file: File): Promise<string> {
   const buf = await file.arrayBuffer();
