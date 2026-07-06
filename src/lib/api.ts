@@ -13,12 +13,16 @@ async function getAuthHeaders() {
   };
 }
 
+// analytics : identifiant de conversation par fil (renvoyé par le proxy, réémis à chaque tour
+// pour regrouper les échanges). En mémoire seulement : rechargement de page = nouvelle conversation.
+const conversationIds: Record<string, string> = {};
+
 async function chatViaProxy(message: string, mode: 'client' | 'marketing', history: Array<{ role: string; content: string }>): Promise<string> {
   const headers = await getAuthHeaders();
   const res = await fetch(`${MISTRAL_PROXY_URL}/chat`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ message, mode, history }),
+    body: JSON.stringify({ message, mode, history, conversation_id: conversationIds[mode] }),
   });
 
   if (res.status === 503) {
@@ -31,6 +35,7 @@ async function chatViaProxy(message: string, mode: 'client' | 'marketing', histo
   }
 
   const data = await res.json();
+  if (data.conversation_id) conversationIds[mode] = data.conversation_id;
   return data.choices?.[0]?.message?.content ?? '';
 }
 
@@ -52,10 +57,11 @@ export async function playgroundChat(
 ): Promise<PlaygroundResult> {
   const headers = await getAuthHeaders();
   const t0 = performance.now();
+  const pgKey = `pg-${mode}-${model}`;
   const res = await fetch(`${MISTRAL_PROXY_URL}/chat`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ message, mode, history, model }),
+    body: JSON.stringify({ message, mode, history, model, conversation_id: conversationIds[pgKey] }),
   });
   const latencyMs = Math.round(performance.now() - t0);
   const empty = { model, latencyMs, promptTokens: 0, completionTokens: 0, error: true };
@@ -64,6 +70,7 @@ export async function playgroundChat(
     return { ...empty, content: e.error || 'Service très sollicité, réessayez dans un instant.' };
   }
   const data = await res.json().catch(() => ({} as any));
+  if (data?.conversation_id) conversationIds[pgKey] = data.conversation_id;
   if (!res.ok || !data?.choices?.[0]?.message) {
     return { ...empty, content: data?.error?.message || data?.error || `Erreur ${res.status}` };
   }

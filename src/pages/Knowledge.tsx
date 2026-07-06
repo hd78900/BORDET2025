@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Database, FileText, Link2, Upload, Trash2, RefreshCw, Plus, Check, X, Pencil, Loader2, AlertCircle, Sparkles,
 } from 'lucide-react';
@@ -34,6 +35,18 @@ export default function Knowledge() {
 
   const set = (patch: Partial<UpsertInput>) => setForm((f) => ({ ...f, ...patch }));
   const chunkPreview = useMemo(() => previewChunkCount(form.type, form.body), [form.type, form.body]);
+
+  // pré-remplissage depuis Analytics (« question sans réponse » -> nouveau contenu)
+  const location = useLocation();
+  useEffect(() => {
+    const pf = (location.state as { prefill?: { title?: string } } | null)?.prefill;
+    if (pf?.title) {
+      setTab('add'); setMode('paste');
+      setForm((f) => ({ ...f, type: 'manual', title: pf.title! }));
+      setMsg({ kind: 'ok', text: 'Sujet importé depuis Analytics — rédigez le contenu qui répond à cette question, puis ajoutez.' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadList = async () => {
     setListBusy(true);

@@ -186,6 +186,15 @@ Deno.serve(async (req: Request) => {
 
   // -------- CHAT (RAG côté serveur) --------
   if (req.method === "POST" && path === "/chat") {
+    const t0 = Date.now();
+    // ---- analytics : identifiant de conversation (repris du client s'il le renvoie, sinon généré)
+    // et journalisation de CHAQUE échange dans chat_logs (y compris widget anonyme). Le log ne doit
+    // JAMAIS casser la réponse -> best-effort silencieux.
+    const convId = typeof body?.conversation_id === "string" && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(body.conversation_id)
+      ? body.conversation_id : crypto.randomUUID();
+    const logChat = async (row: Record<string, unknown>) => {
+      try { await sb.from("chat_logs").insert({ conversation_id: convId, ...row }); } catch { /* jamais bloquant */ }
+    };
     // message utilisateur : { message } (nouveau) OU dernier message user de { messages } (rétro-compat)
     let userMessage: string | undefined = typeof body?.message === "string" ? body.message : undefined;
     if (!userMessage && Array.isArray(body?.messages)) {
@@ -196,7 +205,8 @@ Deno.serve(async (req: Request) => {
       return json({ error: "message invalide" }, 400);
 
     const mode = body?.mode === "marketing" ? "marketing" : "client";
-    const marketing = mode === "marketing" && callerRole(req) === "authenticated";
+    const isAuthCaller = callerRole(req) === "authenticated";
+    const marketing = mode === "marketing" && isAuthCaller;
     const model = marketing ? LARGE : MEDIUM;  // client -> medium, marketing -> large
     const maxTokens = marketing ? MAX_TOKENS_MKT : MAX_TOKENS_CLIENT;
     const reserveN = marketing ? RESERVE_MKT : RESERVE_CLIENT;
@@ -267,7 +277,13 @@ Deno.serve(async (req: Request) => {
     // 3) aucun contexte -> pas d'appel LLM, message canné (donc JAMAIS de réponse "libre")
     if (!matches.length) {
       await reconcile(50, reserveN);
-      return json({ model, choices: [{ message: { role: "assistant", content: NO_INFO } }], usage: { total_tokens: 50 } });
+      await logChat({
+        origin: isAuthCaller ? "backoffice" : "widget", mode, model,
+        question: userMessage, answer: NO_INFO, no_info: true,
+        match_count: 0, top_similarity: null, sources_cited: [],
+        total_tokens: 50, latency_ms: Date.now() - t0,
+      });
+      return json({ model, conversation_id: convId, choices: [{ message: { role: "assistant", content: NO_INFO } }], usage: { total_tokens: 50 } });
     }
 
     // 4) assemblage serveur : prompt + contexte RAG (le client ne contrôle ni l'un ni l'autre)
@@ -298,8 +314,7 @@ Deno.serve(async (req: Request) => {
     //    chat_model prod (OpenRouter) > Mistral medium. Le widget public (anon) ne peut PAS choisir -> prod intact.
     const orKey = Deno.env.get("OPENROUTER_API_KEY");
     const ALLOWED_TEST = new Set(["mistral-medium-latest", "openai/gpt-5.4-nano", "google/gemini-3.1-flash-lite"]);
-    const isAdmin = callerRole(req) === "authenticated";
-    const testModel = isAdmin && typeof body?.model === "string" && ALLOWED_TEST.has(body.model) ? body.model : null;
+    const testModel = isAuthCaller && typeof body?.model === "string" && ALLOWED_TEST.has(body.model) ? body.model : null;
     const chatModelGlobal = (ws?.chat_model || "").trim();
     const finalModel = testModel ?? (marketing ? LARGE : (chatModelGlobal || MEDIUM));
     const useOR = finalModel.includes("/") && !!orKey;   // un slug OpenRouter contient "/" ; sinon Mistral direct
@@ -329,7 +344,18 @@ Deno.serve(async (req: Request) => {
     if (!cr.ok || !data?.choices?.[0]?.message) return json(data ?? { error: "upstream error" }, cr.status);
 
     // 6) sanitization URLs serveur (seules les URLs des chunks récupérés survivent)
-    data.choices[0].message.content = sanitizeUrls(String(data.choices[0].message.content ?? ""), matches);
+    const finalAnswer = sanitizeUrls(String(data.choices[0].message.content ?? ""), matches);
+    data.choices[0].message.content = finalAnswer;
+    // 7) analytics : journalise l'échange (produits cités = URLs bordet.fr de la réponse finale)
+    const cited = [...new Set([...finalAnswer.matchAll(/https:\/\/www\.bordet\.fr\/[^\s)\]"']+/g)].map((m) => m[0]))];
+    await logChat({
+      origin: testModel ? "playground" : (isAuthCaller ? "backoffice" : "widget"), mode, model: finalModel,
+      question: userMessage, answer: finalAnswer, no_info: false,
+      match_count: matches.length, top_similarity: matches[0]?.similarity ?? null, sources_cited: cited,
+      prompt_tokens: data.usage?.prompt_tokens ?? null, completion_tokens: data.usage?.completion_tokens ?? null,
+      total_tokens: data.usage?.total_tokens ?? null, latency_ms: Date.now() - t0,
+    });
+    data.conversation_id = convId;
     return json(data, 200);
   }
 

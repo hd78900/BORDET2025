@@ -5,6 +5,8 @@ import Settings from './pages/Settings';
 import Admin from './pages/Admin';
 // lazy : embarque pdf.js — chargé uniquement à l'ouverture de la page (hors bundle du widget public)
 const Knowledge = lazy(() => import('./pages/Knowledge'));
+// lazy : embarque recharts — même logique
+const Analytics = lazy(() => import('./pages/Analytics'));
 import FAQ from './pages/FAQ';
 import Login from './pages/Login';
 import Layout from './components/Layout';
@@ -106,6 +108,16 @@ function App() {
               <PrivateRoute requireAdmin>
                 <Suspense fallback={<div className="p-8 text-gray-400">Chargement…</div>}>
                   <Knowledge />
+                </Suspense>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="analytics"
+            element={
+              <PrivateRoute requireAdmin>
+                <Suspense fallback={<div className="p-8 text-gray-400">Chargement…</div>}>
+                  <Analytics />
                 </Suspense>
               </PrivateRoute>
             }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
-import { MessageSquare, Settings, Users, LogOut, HelpCircle, Database } from 'lucide-react';
+import { MessageSquare, Settings, Users, LogOut, HelpCircle, Database, BarChart3 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
 
@@ -48,6 +48,13 @@ export default function Layout() {
                       title="Base de connaissances"
                     >
                       <Database className="h-6 w-6" />
+                    </Link>
+                    <Link
+                      to="/analytics"
+                      className="p-2 text-gray-600 hover:text-gray-900 rounded-full hover:bg-gray-100"
+                      title="Analytics conversations"
+                    >
+                      <BarChart3 className="h-6 w-6" />
                     </Link>
                     <Link
                       to="/settings"
