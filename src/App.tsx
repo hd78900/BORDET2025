@@ -7,7 +7,6 @@ import Admin from './pages/Admin';
 const Knowledge = lazy(() => import('./pages/Knowledge'));
 // lazy : embarque recharts — même logique
 const Analytics = lazy(() => import('./pages/Analytics'));
-import FAQ from './pages/FAQ';
 import Login from './pages/Login';
 import Layout from './components/Layout';
 import Widget from './components/Widget';
@@ -123,7 +122,6 @@ function App() {
               </PrivateRoute>
             }
           />
-          <Route path="faq" element={<FAQ />} />
         </Route>
       </Routes>
     </Router>

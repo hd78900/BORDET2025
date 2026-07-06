@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
-import { MessageSquare, Settings, Users, LogOut, HelpCircle, Database, BarChart3 } from 'lucide-react';
+import { MessageSquare, Settings, Users, LogOut, Database, BarChart3 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
 
@@ -26,13 +26,6 @@ export default function Layout() {
             </div>
             {user && (
               <div className="flex items-center space-x-4">
-                <Link
-                  to="/faq"
-                  className="p-2 text-gray-600 hover:text-gray-900 rounded-full hover:bg-gray-100"
-                  title="FAQ"
-                >
-                  <HelpCircle className="h-6 w-6" />
-                </Link>
                 {isAdmin && (
                   <>
                     <Link
