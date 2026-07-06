@@ -134,7 +134,7 @@ export default function Knowledge() {
 
   const ModeBtn = ({ m, icon: Icon, label }: { m: Mode; icon: any; label: string }) => (
     <button onClick={() => setMode(m)}
-      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border ${mode === m ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}>
+      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border ${mode === m ? 'bg-red-950 text-white border-red-950' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}>
       <Icon className="h-4 w-4" /> {label}
     </button>
   );
@@ -142,14 +142,14 @@ export default function Knowledge() {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
-        <Database className="h-7 w-7 text-indigo-600" />
+        <Database className="h-7 w-7 text-red-950" />
         <h1 className="text-2xl font-bold text-gray-900">Base de connaissances</h1>
       </div>
 
       <div className="flex gap-2 mb-6 border-b border-gray-200">
         {(['add', 'manage'] as Tab[]).map((t) => (
           <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 ${tab === t ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+            className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 ${tab === t ? 'border-red-950 text-red-950' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
             {t === 'add' ? 'Ajouter du contenu' : `Gérer (${sources.length})`}
           </button>
         ))}
@@ -178,7 +178,7 @@ export default function Knowledge() {
                 placeholder="https://www.bordet.fr/...-c2x1234"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
               <button onClick={submitCrawl} disabled={busy || !crawlUrl.trim()}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium disabled:opacity-50">
+                className="flex items-center gap-2 px-4 py-2 bg-red-950 text-white rounded-lg text-sm font-medium hover:bg-red-800 disabled:opacity-50">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Importer l'URL
               </button>
             </div>
@@ -186,7 +186,7 @@ export default function Knowledge() {
             <div className="space-y-4">
               {mode === 'pdf' && (
                 <label className="flex items-center gap-3 px-4 py-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
-                  {(pdfBusy || cleaning) ? <Loader2 className="h-5 w-5 animate-spin text-indigo-600" /> : <Upload className="h-5 w-5 text-gray-400" />}
+                  {(pdfBusy || cleaning) ? <Loader2 className="h-5 w-5 animate-spin text-red-950" /> : <Upload className="h-5 w-5 text-gray-400" />}
                   <span className="text-sm text-gray-600">
                     {pdfBusy ? 'Extraction du texte…' : cleaning ? 'Nettoyage IA en cours…' : 'Choisir un fichier PDF (texte extrait dans le navigateur, puis nettoyé par l\'IA)'}
                   </span>
@@ -237,7 +237,7 @@ export default function Knowledge() {
                     )}
                     {form.type !== 'product' && form.body.trim() && (
                       <button type="button" onClick={runClean} disabled={cleaning}
-                        className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+                        className="flex items-center gap-1 text-xs font-medium text-red-950 hover:text-red-800 disabled:opacity-50"
                         title="Nettoyage de formatage par mistral-medium (aucun chiffre/mot modifié)">
                         {cleaning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                         {cleaning ? 'Nettoyage…' : "Nettoyer avec l'IA"}
@@ -251,7 +251,7 @@ export default function Knowledge() {
 
               <div className="flex gap-2">
                 <button onClick={submitUpsert} disabled={busy || cleaning}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium disabled:opacity-50">
+                  className="flex items-center gap-2 px-4 py-2 bg-red-950 text-white rounded-lg text-sm font-medium hover:bg-red-800 disabled:opacity-50">
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Ajouter à la base
                 </button>
                 <button onClick={resetForm} className="px-4 py-2 text-gray-600 text-sm hover:text-gray-900">Réinitialiser</button>
@@ -280,10 +280,10 @@ export default function Knowledge() {
                     <p className="text-xs text-gray-400">
                       {s.source_type} · {s.n_chunks} chunk{s.n_chunks > 1 ? 's' : ''}
                       {s.added_at ? ` · ${new Date(s.added_at).toLocaleDateString('fr-FR')}` : ''}
-                      {s.url ? <> · <a href={s.url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">lien</a></> : ''}
+                      {s.url ? <> · <a href={s.url} target="_blank" rel="noreferrer" className="text-red-950 hover:underline">lien</a></> : ''}
                     </p>
                   </div>
-                  <button onClick={() => editSource(s)} title="Éditer" className="p-2 text-gray-400 hover:text-indigo-600"><Pencil className="h-4 w-4" /></button>
+                  <button onClick={() => editSource(s)} title="Éditer" className="p-2 text-gray-400 hover:text-red-950"><Pencil className="h-4 w-4" /></button>
                   <button onClick={() => removeSource(s)} title="Supprimer" className="p-2 text-gray-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
                 </li>
               ))}
