@@ -4,7 +4,7 @@ import {
   Database, FileText, Link2, Upload, Trash2, RefreshCw, Plus, Check, X, Pencil, Loader2, AlertCircle, Sparkles,
 } from 'lucide-react';
 import {
-  ingestUpsert, ingestCrawl, ingestList, ingestDelete, ingestClean, ingestGet, extractPdfText, previewChunkCount,
+  ingestUpsert, ingestCrawlPreview, ingestList, ingestDelete, ingestClean, ingestGet, extractPdfText, previewChunkCount,
   IngestNeedsConfirm, type IngestType, type KnowledgeSource, type UpsertInput,
 } from '../lib/ingest';
 
@@ -93,23 +93,22 @@ export default function Knowledge() {
     finally { setBusy(false); }
   };
 
-  const submitCrawl = async (force = false) => {
+  // Crawl = APERÇU : récupère le contenu et le charge dans le formulaire pour relecture ;
+  // rien n'est écrit tant que l'admin n'a pas cliqué « Ajouter à la base ».
+  const previewCrawl = async () => {
     setBusy(true); setMsg(null);
     try {
-      const r = await ingestCrawl(crawlUrl.trim(), force);
-      setMsg({ kind: 'ok', text: `« ${r.title} » importé depuis l'URL (${r.chunks} chunk${r.chunks > 1 ? 's' : ''}).` });
+      const c = await ingestCrawlPreview(crawlUrl.trim());
+      setForm({
+        type: c.type, title: c.title, url: c.url || '', body: c.body || '',
+        brand: c.brand || '', sku: c.sku || '', price: c.price ?? null, availability: c.availability || '',
+      });
       setCrawlUrl('');
-      loadList();
+      setMode('paste');
+      setMsg({ kind: 'ok', text: `Contenu récupéré depuis l'URL — relisez / corrigez, puis « Ajouter à la base ».` });
     } catch (e) {
-      if (e instanceof IngestNeedsConfirm) {
-        setBusy(false);
-        if (confirmWarnings(e.warnings)) return submitCrawl(true);
-        setMsg({ kind: 'err', text: 'Import annulé.' });
-        return;
-      }
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
-    }
-    finally { setBusy(false); }
+    } finally { setBusy(false); }
   };
 
   const runClean = async () => {
@@ -123,24 +122,8 @@ export default function Knowledge() {
     finally { setCleaning(false); }
   };
 
-  // Import PDF « en un geste » : extraction -> nettoyage IA -> ajout auto (titre = nom du fichier),
-  // aucun champ à remplir. Le résultat est relisible / renommable / supprimable dans l'onglet « Gérer ».
-  const addPdfContent = async (title: string, body: string, type: IngestType, force = false): Promise<void> => {
-    try {
-      const r = await ingestUpsert({ type, title, body }, force);
-      const where = type === 'book' ? 'marketing seulement' : 'public';
-      setMsg({ kind: 'ok', text: `« ${r.title} » importé (${r.chunks} chunk${r.chunks > 1 ? 's' : ''}, ${where}) — relisez-le dans l'onglet « Gérer » (crayon).` });
-      loadList();
-    } catch (e) {
-      if (e instanceof IngestNeedsConfirm) {
-        if (confirmWarnings(e.warnings)) return addPdfContent(title, body, type, true);
-        setMsg({ kind: 'err', text: 'Import annulé.' });
-        return;
-      }
-      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
-    }
-  };
-
+  // Import PDF : extraction (navigateur) -> nettoyage IA -> pré-remplit le formulaire pour RELECTURE.
+  // Aucune écriture avant que l'admin ne clique « Ajouter à la base ».
   const onPickPdf = async (file: File | undefined) => {
     if (!file) return;
     const type: IngestType = pdfMarketingOnly ? 'book' : 'manual';
@@ -163,11 +146,10 @@ export default function Knowledge() {
     let cleaned = text;
     try { cleaned = await ingestClean(text); } catch { /* fallback texte brut */ }
     setCleaning(false);
-    // ajout automatique
-    setBusy(true);
-    setMsg({ kind: 'ok', text: `« ${title} » — ajout à la base…` });
-    await addPdfContent(title, cleaned, type);
-    setBusy(false);
+    // RELECTURE : pré-remplit le formulaire, aucune écriture avant « Ajouter à la base »
+    setForm({ ...emptyForm, type, title, body: cleaned });
+    setMode('paste');
+    setMsg({ kind: 'ok', text: `« ${title} » — texte extrait et nettoyé : relisez / corrigez, puis « Ajouter à la base ».` });
   };
 
   const editSource = async (s: KnowledgeSource) => {
@@ -235,48 +217,48 @@ export default function Knowledge() {
 
           {mode === 'crawl' ? (
             <div className="space-y-4">
-              <p className="text-sm text-gray-500">Collez l'URL d'une fiche produit (…-c2x…) ou d'un article (…-c1200x…). Le contenu est récupéré, découpé et embarqué automatiquement.</p>
+              <p className="text-sm text-gray-500">Collez l'URL d'une fiche produit (…-c2x…) ou d'un article (…-c1200x…). Le contenu est récupéré puis <strong>affiché pour relecture</strong> — vous validez avant l'ajout.</p>
               <input value={crawlUrl} onChange={(e) => setCrawlUrl(e.target.value)}
                 placeholder="https://www.bordet.fr/...-c2x1234"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-              <button onClick={() => submitCrawl()} disabled={busy || !crawlUrl.trim()}
+              <button onClick={previewCrawl} disabled={busy || !crawlUrl.trim()}
                 className="flex items-center gap-2 px-4 py-2 bg-red-950 text-white rounded-lg text-sm font-medium hover:bg-red-800 disabled:opacity-50">
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Importer l'URL
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />} Récupérer pour relecture
               </button>
             </div>
           ) : mode === 'pdf' ? (
             <div className="space-y-3">
               <p className="text-sm text-gray-500">
-                Déposez un PDF : le texte est extrait dans votre navigateur, nettoyé par l'IA, puis <strong>ajouté automatiquement</strong> (titre = nom du fichier). Rien d'autre à remplir.
+                Déposez un PDF : le texte est extrait dans votre navigateur, nettoyé par l'IA, puis <strong>affiché pour relecture</strong> (titre = nom du fichier) — vous validez avant l'ajout.
               </p>
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-gray-500">Visible par :</span>
                 <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
-                  <button type="button" disabled={pdfBusy || cleaning || busy} onClick={() => setPdfMarketingOnly(false)}
+                  <button type="button" disabled={pdfBusy || cleaning} onClick={() => setPdfMarketingOnly(false)}
                     className={`px-3 py-1.5 ${!pdfMarketingOnly ? 'bg-red-950 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-50`}>
                     Public (widget)
                   </button>
-                  <button type="button" disabled={pdfBusy || cleaning || busy} onClick={() => setPdfMarketingOnly(true)}
+                  <button type="button" disabled={pdfBusy || cleaning} onClick={() => setPdfMarketingOnly(true)}
                     className={`px-3 py-1.5 ${pdfMarketingOnly ? 'bg-red-950 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-50`}>
                     Marketing seulement
                   </button>
                 </div>
               </div>
-              <label className={`flex flex-col items-center justify-center gap-2 px-4 py-10 border-2 border-dashed border-gray-300 rounded-lg ${(pdfBusy || cleaning || busy) ? 'opacity-60' : 'cursor-pointer hover:bg-gray-50'}`}>
-                {(pdfBusy || cleaning || busy)
+              <label className={`flex flex-col items-center justify-center gap-2 px-4 py-10 border-2 border-dashed border-gray-300 rounded-lg ${(pdfBusy || cleaning) ? 'opacity-60' : 'cursor-pointer hover:bg-gray-50'}`}>
+                {(pdfBusy || cleaning)
                   ? <Loader2 className="h-6 w-6 animate-spin text-red-950" />
                   : <Upload className="h-6 w-6 text-gray-400" />}
                 <span className="text-sm text-gray-600 text-center">
-                  {pdfBusy ? 'Extraction du texte…' : cleaning ? 'Nettoyage IA…' : busy ? 'Ajout à la base…' : 'Choisir un fichier PDF'}
+                  {pdfBusy ? 'Extraction du texte…' : cleaning ? 'Nettoyage IA…' : 'Choisir un fichier PDF'}
                 </span>
-                <input type="file" accept="application/pdf" className="hidden" disabled={pdfBusy || cleaning || busy}
+                <input type="file" accept="application/pdf" className="hidden" disabled={pdfBusy || cleaning}
                   onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; onPickPdf(f); }} />
               </label>
               <p className="text-xs text-gray-400">
                 {pdfMarketingOnly
                   ? 'Marketing seulement : interrogeable uniquement en mode marketing (admin), jamais par le widget public.'
                   : 'Public : le contenu pourra être utilisé dans les réponses du widget client.'}
-                {' '}Relisez / renommez / supprimez dans l'onglet « Gérer ». PDF scannés (images) non pris en charge : pas d'OCR.
+                {' '}Le texte s'affiche ensuite pour relecture avant l'ajout. PDF scannés (images) non pris en charge : pas d'OCR.
               </p>
             </div>
           ) : (

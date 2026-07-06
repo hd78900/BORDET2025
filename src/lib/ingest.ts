@@ -77,6 +77,15 @@ export function ingestCrawl(url: string, force = false) {
   });
 }
 
+// Aperçu du crawl : récupère + extrait le contenu SANS l'écrire (pour relecture avant validation).
+export interface CrawlPreview {
+  type: IngestType; title: string; url: string | null; body: string;
+  brand: string | null; price: number | null; sku: string | null; availability: string | null;
+}
+export function ingestCrawlPreview(url: string) {
+  return call<{ ok: true; preview: true } & CrawlPreview>({ action: 'crawl', url, preview: true });
+}
+
 export function ingestList() {
   return call<{ ok: true; sources: KnowledgeSource[] }>({ action: 'list' }).then((r) => r.sources);
 }

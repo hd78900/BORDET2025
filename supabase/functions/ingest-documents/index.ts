@@ -482,6 +482,13 @@ Deno.serve(async (req: Request) => {
       }
     } catch (e) { return json({ error: `préparation: ${e instanceof Error ? e.message : e}` }, 400); }
 
+    // APERÇU (crawl) : renvoie le contenu extrait SANS écrire — l'UI le fait relire/valider avant l'ingestion.
+    if (action === "crawl" && body?.preview === true) {
+      return json({ ok: true, preview: true, type: src.type, title: src.title, url: src.url ?? null,
+                    body: src.body, brand: src.brand ?? null, price: src.price ?? null,
+                    sku: src.sku ?? null, availability: src.availability ?? null });
+    }
+
     let rows: Row[], sourceGroup: string;
     try {
       ({ rows, sourceGroup } = await buildRows({ ...src, addedBy: email }));
