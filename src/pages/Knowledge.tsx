@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   Database, FileText, Link2, Upload, Trash2, RefreshCw, Plus, Check, X, Pencil, Loader2, AlertCircle, Sparkles,
@@ -122,34 +122,49 @@ export default function Knowledge() {
     finally { setCleaning(false); }
   };
 
+  // Import PDF « en un geste » : extraction -> nettoyage IA -> ajout auto (titre = nom du fichier),
+  // aucun champ à remplir. Le résultat est relisible / renommable / supprimable dans l'onglet « Gérer ».
+  const addPdfContent = async (title: string, body: string, force = false): Promise<void> => {
+    try {
+      const r = await ingestUpsert({ type: 'manual', title, body }, force);
+      setMsg({ kind: 'ok', text: `« ${r.title} » importé (${r.chunks} chunk${r.chunks > 1 ? 's' : ''}).` });
+      loadList();
+    } catch (e) {
+      if (e instanceof IngestNeedsConfirm) {
+        if (confirmWarnings(e.warnings)) return addPdfContent(title, body, true);
+        setMsg({ kind: 'err', text: 'Import annulé.' });
+        return;
+      }
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
+    }
+  };
+
   const onPickPdf = async (file: File | undefined) => {
     if (!file) return;
-    setPdfBusy(true); setMsg(null);
+    const title = file.name.replace(/\.pdf$/i, '').trim() || 'Document PDF';
+    setPdfBusy(true);
+    setMsg({ kind: 'ok', text: `« ${title} » — extraction du texte…` });
     let text = '';
     try {
       text = await extractPdfText(file);
-      if (!text.trim()) throw new Error('Aucun texte extrait (PDF scanné/image ?).');
-      set({
-        body: text,
-        title: form.title || file.name.replace(/\.pdf$/i, ''),
-        type: form.type === 'product' ? 'manual' : form.type,
-      });
+      if (!text.trim()) throw new Error("Aucun texte extrait (PDF scanné/image ?). Pas d'OCR : utilisez « Coller du texte ».");
     } catch (e) {
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
       setPdfBusy(false);
       return;
     }
     setPdfBusy(false);
-    // nettoyage IA AUTOMATIQUE après extraction (formatage seulement) ; résultat relu avant ajout
+    // nettoyage IA automatique (si indisponible, on garde le texte brut)
     setCleaning(true);
-    setMsg({ kind: 'ok', text: `Texte extrait (${text.length.toLocaleString('fr-FR')} car.) — nettoyage IA en cours…` });
-    try {
-      const cleaned = await ingestClean(text);
-      set({ body: cleaned });
-      setMsg({ kind: 'ok', text: 'Texte extrait et nettoyé par l\'IA — relisez puis ajoutez.' });
-    } catch (e) {
-      setMsg({ kind: 'err', text: `Texte extrait, mais nettoyage IA indisponible (${e instanceof Error ? e.message : e}) — texte brut conservé, relisez bien.` });
-    } finally { setCleaning(false); }
+    setMsg({ kind: 'ok', text: `« ${title} » — texte extrait, nettoyage IA…` });
+    let cleaned = text;
+    try { cleaned = await ingestClean(text); } catch { /* fallback texte brut */ }
+    setCleaning(false);
+    // ajout automatique
+    setBusy(true);
+    setMsg({ kind: 'ok', text: `« ${title} » — ajout à la base…` });
+    await addPdfContent(title, cleaned);
+    setBusy(false);
   };
 
   const editSource = (s: KnowledgeSource) => {
@@ -216,19 +231,25 @@ export default function Knowledge() {
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Importer l'URL
               </button>
             </div>
+          ) : mode === 'pdf' ? (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-500">
+                Déposez un PDF : le texte est extrait dans votre navigateur, nettoyé par l'IA, puis <strong>ajouté automatiquement</strong> (titre = nom du fichier). Rien d'autre à remplir.
+              </p>
+              <label className={`flex flex-col items-center justify-center gap-2 px-4 py-10 border-2 border-dashed border-gray-300 rounded-lg ${(pdfBusy || cleaning || busy) ? 'opacity-60' : 'cursor-pointer hover:bg-gray-50'}`}>
+                {(pdfBusy || cleaning || busy)
+                  ? <Loader2 className="h-6 w-6 animate-spin text-red-950" />
+                  : <Upload className="h-6 w-6 text-gray-400" />}
+                <span className="text-sm text-gray-600 text-center">
+                  {pdfBusy ? 'Extraction du texte…' : cleaning ? 'Nettoyage IA…' : busy ? 'Ajout à la base…' : 'Choisir un fichier PDF'}
+                </span>
+                <input type="file" accept="application/pdf" className="hidden" disabled={pdfBusy || cleaning || busy}
+                  onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; onPickPdf(f); }} />
+              </label>
+              <p className="text-xs text-gray-400">Contenu ajouté visible côté widget ; relisez / renommez / supprimez dans l'onglet « Gérer ». PDF scannés (images) non pris en charge : pas d'OCR.</p>
+            </div>
           ) : (
             <div className="space-y-4">
-              {mode === 'pdf' && (
-                <label className="flex items-center gap-3 px-4 py-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
-                  {(pdfBusy || cleaning) ? <Loader2 className="h-5 w-5 animate-spin text-red-950" /> : <Upload className="h-5 w-5 text-gray-400" />}
-                  <span className="text-sm text-gray-600">
-                    {pdfBusy ? 'Extraction du texte…' : cleaning ? 'Nettoyage IA en cours…' : 'Choisir un fichier PDF (texte extrait dans le navigateur, puis nettoyé par l\'IA)'}
-                  </span>
-                  <input type="file" accept="application/pdf" className="hidden"
-                    onChange={(e) => onPickPdf(e.target.files?.[0])} />
-                </label>
-              )}
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Type de contenu</label>
                 <select value={form.type} onChange={(e) => set({ type: e.target.value as IngestType })}
@@ -279,7 +300,7 @@ export default function Knowledge() {
                     )}
                   </div>
                 </div>
-                <textarea value={form.body} onChange={(e) => set({ body: e.target.value })} rows={mode === 'pdf' ? 12 : 8}
+                <textarea value={form.body} onChange={(e) => set({ body: e.target.value })} rows={8}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono" placeholder="Contenu à ingérer…" />
               </div>
 
