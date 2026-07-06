@@ -32,6 +32,24 @@ const EMBED_MODEL = "mistral-embed";
 const BOT_ID = "bot1";
 const DIM = 1024;
 
+// --- nettoyage IA du texte extrait (PDF) : formatage SEULEMENT, jamais de réécriture du fond ---
+const CLEAN_MODEL = "mistral-medium-latest";
+const CLEAN_TARGET_TOK = 3000;        // taille d'un segment envoyé au modèle (un PDF dépasse le contexte)
+const CLEAN_MAX_TOKENS = 4096;        // sortie par segment (~ taille de l'entrée nettoyée)
+const MAX_CLEAN_CHARS = 150_000;      // garde-fou coût/latence (~10-12 appels medium) ; au-delà -> découper
+const CLEAN_SYSTEM =
+`Tu nettoies du texte BRUT extrait d'un PDF, destiné à une base de connaissances.
+Objectif : le rendre lisible SANS en altérer le fond.
+- Recolle les mots coupés par une césure en fin de ligne (« exem- ple » -> « exemple »).
+- Supprime les artefacts de pagination récurrents : en-têtes, pieds de page, numéros de page isolés, « Page X/Y ».
+- Reconstitue les paragraphes (fusionne les retours à la ligne parasites au milieu d'une phrase).
+- Conserve les listes, les titres et l'ORDRE du contenu.
+RÈGLES ABSOLUES :
+- Ne modifie AUCUN mot, chiffre, prix, dimension, référence, marque ou nom propre.
+- N'ajoute rien, ne résume pas, ne reformule pas, ne traduis pas, ne commente pas.
+- Si un passage est incompréhensible, laisse-le TEL QUEL.
+Réponds UNIQUEMENT avec le texte nettoyé, sans introduction, sans balise, sans guillemets englobants.`;
+
 // bornes anti-abus (fonction admin, mais on borne quand même)
 const MAX_BODY_BYTES = 2 * 1024 * 1024;   // 2 Mo (un gros PDF -> texte tient largement)
 const MAX_CHARS = 400_000;                // ~ garde-fou taille du corps
@@ -123,6 +141,31 @@ function chunkText(body: string): string[] {
     windows.pop();
   }
   return windows.length ? windows : [body.trim()].filter(Boolean);
+}
+
+// Regroupe le texte en segments ~CLEAN_TARGET_TOK pour le nettoyage LLM (contexte borné).
+function segmentForClean(text: string): string[] {
+  const paras = text.split(/\n\s*\n/);
+  const segs: string[] = [];
+  let cur: string[] = [], curTok = 0;
+  for (const p of paras) {
+    const pt = estTokens(p);
+    if (pt > CLEAN_TARGET_TOK) {                       // paragraphe géant -> coupe par phrases
+      if (cur.length) { segs.push(cur.join("\n\n")); cur = []; curTok = 0; }
+      let c = "", ct = 0;
+      for (const s of p.split(/(?<=[.!?])\s+/)) {
+        const st = estTokens(s);
+        if (ct + st > CLEAN_TARGET_TOK && c) { segs.push(c); c = s; ct = st; }
+        else { c = (c ? c + " " : "") + s; ct += st; }
+      }
+      if (c) segs.push(c);
+      continue;
+    }
+    if (curTok + pt > CLEAN_TARGET_TOK && cur.length) { segs.push(cur.join("\n\n")); cur = []; curTok = 0; }
+    cur.push(p); curTok += pt;
+  }
+  if (cur.length) segs.push(cur.join("\n\n"));
+  return segs.length ? segs : [text];
 }
 
 // ---------- types ----------
@@ -293,6 +336,31 @@ Deno.serve(async (req: Request) => {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return json({ error: "invalid JSON" }, 400); }
   const action = body?.action;
+
+  // ---- CLEAN : nettoyage IA du texte extrait (formatage seulement, jamais de réécriture) ----
+  if (action === "clean") {
+    const text = String(body?.text || "");
+    if (!text.trim()) return json({ error: "texte vide" }, 400);
+    if (text.length > MAX_CLEAN_CHARS)
+      return json({ error: `texte trop long pour le nettoyage auto (> ${MAX_CLEAN_CHARS} caractères) — découpe le document` }, 413);
+    const segments = segmentForClean(text);
+    const out: string[] = [];
+    for (const seg of segments) {
+      const r = await fetch(`${MISTRAL_API_BASE}/chat/completions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${mistralKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: CLEAN_MODEL, temperature: 0, max_tokens: CLEAN_MAX_TOKENS,
+          messages: [{ role: "system", content: CLEAN_SYSTEM }, { role: "user", content: seg }],
+        }),
+      });
+      if (!r.ok) return json({ error: `nettoyage: mistral ${r.status}` }, 502);
+      const d = await r.json();
+      const c = d?.choices?.[0]?.message?.content;
+      out.push(typeof c === "string" && c.trim() ? c.trim() : seg);   // fallback : segment brut si réponse vide
+    }
+    return json({ ok: true, cleaned: out.join("\n\n"), segments: segments.length });
+  }
 
   // ---- LIST : sources ajoutées via l'UI (groupées, sans embedding ni content) ----
   if (action === "list") {

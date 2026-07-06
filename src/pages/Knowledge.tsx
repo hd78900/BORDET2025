@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Database, FileText, Link2, Upload, Trash2, RefreshCw, Plus, Check, X, Pencil, Loader2, AlertCircle,
+  Database, FileText, Link2, Upload, Trash2, RefreshCw, Plus, Check, X, Pencil, Loader2, AlertCircle, Sparkles,
 } from 'lucide-react';
 import {
-  ingestUpsert, ingestCrawl, ingestList, ingestDelete, extractPdfText, previewChunkCount,
+  ingestUpsert, ingestCrawl, ingestList, ingestDelete, ingestClean, extractPdfText, previewChunkCount,
   type IngestType, type KnowledgeSource, type UpsertInput,
 } from '../lib/ingest';
 
@@ -26,6 +26,7 @@ export default function Knowledge() {
   const [crawlUrl, setCrawlUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
@@ -76,20 +77,45 @@ export default function Knowledge() {
     finally { setBusy(false); }
   };
 
+  const runClean = async () => {
+    if (!form.body.trim() || cleaning) return;
+    setCleaning(true); setMsg(null);
+    try {
+      const cleaned = await ingestClean(form.body);
+      set({ body: cleaned });
+      setMsg({ kind: 'ok', text: 'Texte nettoyé par l\'IA (formatage uniquement, aucun chiffre modifié) — relisez avant d\'ajouter.' });
+    } catch (e) { setMsg({ kind: 'err', text: `Nettoyage indisponible (${e instanceof Error ? e.message : e}) — texte inchangé.` }); }
+    finally { setCleaning(false); }
+  };
+
   const onPickPdf = async (file: File | undefined) => {
     if (!file) return;
     setPdfBusy(true); setMsg(null);
+    let text = '';
     try {
-      const text = await extractPdfText(file);
+      text = await extractPdfText(file);
       if (!text.trim()) throw new Error('Aucun texte extrait (PDF scanné/image ?).');
       set({
         body: text,
         title: form.title || file.name.replace(/\.pdf$/i, ''),
         type: form.type === 'product' ? 'manual' : form.type,
       });
-      setMsg({ kind: 'ok', text: `Texte extrait (${text.length.toLocaleString('fr-FR')} caractères) — relisez puis ajoutez.` });
-    } catch (e) { setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) }); }
-    finally { setPdfBusy(false); }
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
+      setPdfBusy(false);
+      return;
+    }
+    setPdfBusy(false);
+    // nettoyage IA AUTOMATIQUE après extraction (formatage seulement) ; résultat relu avant ajout
+    setCleaning(true);
+    setMsg({ kind: 'ok', text: `Texte extrait (${text.length.toLocaleString('fr-FR')} car.) — nettoyage IA en cours…` });
+    try {
+      const cleaned = await ingestClean(text);
+      set({ body: cleaned });
+      setMsg({ kind: 'ok', text: 'Texte extrait et nettoyé par l\'IA — relisez puis ajoutez.' });
+    } catch (e) {
+      setMsg({ kind: 'err', text: `Texte extrait, mais nettoyage IA indisponible (${e instanceof Error ? e.message : e}) — texte brut conservé, relisez bien.` });
+    } finally { setCleaning(false); }
   };
 
   const editSource = (s: KnowledgeSource) => {
@@ -160,8 +186,10 @@ export default function Knowledge() {
             <div className="space-y-4">
               {mode === 'pdf' && (
                 <label className="flex items-center gap-3 px-4 py-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
-                  {pdfBusy ? <Loader2 className="h-5 w-5 animate-spin text-indigo-600" /> : <Upload className="h-5 w-5 text-gray-400" />}
-                  <span className="text-sm text-gray-600">{pdfBusy ? 'Extraction du texte…' : 'Choisir un fichier PDF (le texte est extrait dans votre navigateur)'}</span>
+                  {(pdfBusy || cleaning) ? <Loader2 className="h-5 w-5 animate-spin text-indigo-600" /> : <Upload className="h-5 w-5 text-gray-400" />}
+                  <span className="text-sm text-gray-600">
+                    {pdfBusy ? 'Extraction du texte…' : cleaning ? 'Nettoyage IA en cours…' : 'Choisir un fichier PDF (texte extrait dans le navigateur, puis nettoyé par l\'IA)'}
+                  </span>
                   <input type="file" accept="application/pdf" className="hidden"
                     onChange={(e) => onPickPdf(e.target.files?.[0])} />
                 </label>
@@ -203,16 +231,26 @@ export default function Knowledge() {
                   <label className="block text-sm font-medium text-gray-700">
                     {form.type === 'product' ? 'Description' : 'Contenu'}
                   </label>
-                  {form.type !== 'product' && form.body.trim() && (
-                    <span className="text-xs text-gray-400">≈ {chunkPreview} chunk{chunkPreview > 1 ? 's' : ''}</span>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {form.type !== 'product' && form.body.trim() && (
+                      <span className="text-xs text-gray-400">≈ {chunkPreview} chunk{chunkPreview > 1 ? 's' : ''}</span>
+                    )}
+                    {form.type !== 'product' && form.body.trim() && (
+                      <button type="button" onClick={runClean} disabled={cleaning}
+                        className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+                        title="Nettoyage de formatage par mistral-medium (aucun chiffre/mot modifié)">
+                        {cleaning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                        {cleaning ? 'Nettoyage…' : "Nettoyer avec l'IA"}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <textarea value={form.body} onChange={(e) => set({ body: e.target.value })} rows={mode === 'pdf' ? 12 : 8}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono" placeholder="Contenu à ingérer…" />
               </div>
 
               <div className="flex gap-2">
-                <button onClick={submitUpsert} disabled={busy}
+                <button onClick={submitUpsert} disabled={busy || cleaning}
                   className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium disabled:opacity-50">
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Ajouter à la base
                 </button>

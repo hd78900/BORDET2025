@@ -73,6 +73,11 @@ export function ingestDelete(source_group: string) {
   return call<{ ok: true; deleted: number }>({ action: 'delete', source_group });
 }
 
+// Nettoyage IA du texte (formatage seulement, mistral-medium côté serveur). Renvoie le texte nettoyé.
+export function ingestClean(text: string) {
+  return call<{ ok: true; cleaned: string; segments: number }>({ action: 'clean', text }).then((r) => r.cleaned);
+}
+
 // --- extraction du texte d'un PDF, côté navigateur (le PDF ne quitte pas le poste) ---
 export async function extractPdfText(file: File): Promise<string> {
   const buf = await file.arrayBuffer();
