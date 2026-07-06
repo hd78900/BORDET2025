@@ -50,6 +50,11 @@ RÈGLES ABSOLUES :
 - Si un passage est incompréhensible, laisse-le TEL QUEL.
 Réponds UNIQUEMENT avec le texte nettoyé, sans introduction, sans balise, sans guillemets englobants.`;
 
+// --- gardes d'ingestion (anti-doublon / qualité / cohérence catalogue) ---
+const MIN_BODY_CHARS = 200;   // en dessous : inutile au RAG (bruit)
+const SIM_BLOCK = 0.97;       // similarité cosine ≥ 0.97 = quasi-doublon -> refus
+const SIM_WARN = 0.90;        // 0.90-0.97 = suspect -> confirmation admin requise
+
 // bornes anti-abus (fonction admin, mais on borne quand même)
 const MAX_BODY_BYTES = 2 * 1024 * 1024;   // 2 Mo (un gros PDF -> texte tient largement)
 const MAX_CHARS = 400_000;                // ~ garde-fou taille du corps
@@ -167,6 +172,10 @@ function segmentForClean(text: string): string[] {
   if (cur.length) segs.push(cur.join("\n\n"));
   return segs.length ? segs : [text];
 }
+
+// normalisation pour le hash de dédup exacte : insensible à la casse, aux espaces et aux URLs
+const normForHash = (s: string) =>
+  s.toLowerCase().replace(/https?:\/\/\S+/g, "").replace(/\s+/g, " ").trim();
 
 // ---------- types ----------
 type IngestType = "product" | "article" | "book" | "manual";
@@ -433,10 +442,99 @@ Deno.serve(async (req: Request) => {
     if (rows.length > MAX_CHUNKS) return json({ error: `${rows.length} chunks > max ${MAX_CHUNKS} — scinder la source` }, 413);
     for (const r of rows) if (estTokens(r.content) > MISTRAL_MAX_TOKENS) return json({ error: "un chunk dépasse la limite d'embedding" }, 400);
 
+    // ===================== GARDES D'INGESTION =====================
+    // Principe : bloquer les données qui casseraient le RAG À L'ENTRÉE (doublons,
+    // bruit, contradictions), plutôt que de rattraper à la sortie.
+    // block -> 400 (refus net) ; warn -> 409 {warnings} et l'UI redemande avec force:true.
+    const force = body?.force === true;
+    const warnings: string[] = [];
+
+    // --- GARDE C : qualité du texte (types chunkés ; une fiche produit courte est légitime) ---
+    if (src.type !== "product") {
+      if (src.body.trim().length < MIN_BODY_CHARS)
+        return json({ error: `contenu trop court (< ${MIN_BODY_CHARS} caractères) pour être utile au RAG` }, 400);
+      const moji = (src.body.match(/Ã.|â€.|�/g) || []).length;
+      if (moji >= 5)
+        return json({ error: `encodage cassé détecté (${moji} artefacts type « Ã© / â€™ ») — recollez le texte depuis la source` }, 400);
+      // ligne répétée = artefact de copier-coller (menu de navigation, en-tête de page…)
+      const counts = new Map<string, number>();
+      for (const ln of src.body.split("\n")) { const t = ln.trim(); if (t.length > 3) counts.set(t, (counts.get(t) || 0) + 1); }
+      const rep = [...counts.entries()].find(([, n]) => n > 5);
+      if (rep) warnings.push(`la ligne « ${rep[0].slice(0, 60)} » se répète ${rep[1]} fois (artefact de copier-coller ?)`);
+      // --- GARDE D2 : prix hors fiche produit = future contradiction avec le catalogue ---
+      if (/\d[\d\s .,]*\s*(?:€|euros?\b|EUR\b)/i.test(src.body))
+        warnings.push("prix détecté dans un contenu non-produit — les prix doivent vivre dans les fiches produit (contradiction assurée au prochain changement de prix)");
+    }
+
+    // hash par chunk (clé de dédup exacte, stockée en metadata pour les checks futurs)
+    for (const r of rows) r.metadata.content_hash = await sha1Hex(normForHash(r.content), 16);
+
+    // --- GARDE A : doublon EXACT parmi les contenus déjà ajoutés via l'UI ---
+    // (l'historique crawlé n'a pas de content_hash : lui est couvert par la garde B vectorielle)
+    {
+      const hashes = rows.slice(0, 100).map((r) => String(r.metadata.content_hash));
+      const { data: dup } = await sb.from("documents").select("metadata").eq("bot_id", BOT_ID)
+        .in("metadata->>content_hash", hashes).neq("metadata->>source_group", sourceGroup).limit(1);
+      if (dup && dup.length) {
+        const t = (dup[0].metadata as { title?: string })?.title || "une autre source";
+        return json({ error: `contenu identique déjà présent dans « ${t} » — supprimez-le d'abord ou modifiez le texte` }, 400);
+      }
+    }
+
+    // --- GARDE D1 : lien mort (upsert seulement : un crawl vient de charger la page avec succès) ---
+    if (action === "upsert" && src.url) {
+      try {
+        let hr = await fetch(src.url, { method: "HEAD", redirect: "follow", signal: AbortSignal.timeout(5000) });
+        if (hr.status === 405) { hr = await fetch(src.url, { redirect: "follow", signal: AbortSignal.timeout(5000) }); hr.body?.cancel(); }
+        if (hr.status === 404 || hr.status === 410)
+          warnings.push(`l'URL répond ${hr.status} (lien mort) — elle serait pourtant citée aux clients`);
+      } catch { /* réseau/timeout : on n'empêche pas l'ingestion pour ça */ }
+    }
+
+    // avertissements détectés AVANT embedding : on s'arrête ici sans payer l'API
+    if (warnings.length && !force) return json({ warnings, need_confirm: true }, 409);
+
     // 1) embeddings
     let vectors: number[][];
     try { vectors = await embedAll(rows.map((r) => r.content), mistralKey); }
     catch (e) { return json({ error: `embeddings: ${e instanceof Error ? e.message : e}` }, 502); }
+
+    // --- GARDE B : quasi-doublon SÉMANTIQUE (l'embedding est déjà calculé -> coût = 1-3 RPC) ---
+    // Sondes : 1er, milieu, dernier chunk. include_books:true = on compare aussi aux livres.
+    {
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+      const rpc = (fn: string, payload: unknown) =>
+        fetch(`${supaUrl}/rest/v1/rpc/${fn}`, {
+          method: "POST",
+          headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      type Near = { similarity: number; metadata?: { source_group?: string; source_uid?: string; title?: string } };
+      const probes = [...new Set([0, Math.floor(rows.length / 2), rows.length - 1])];
+      let worst: { sim: number; title: string } | null = null;
+      for (const i of probes) {
+        const qe = `[${vectors[i].join(",")}]`;
+        let ms: Near[] = [];
+        try {
+          const r = await rpc("match_documents_hybrid", { query_embedding: qe, query_text: "", match_count: 3, filter_bot_id: BOT_ID, include_books: true });
+          if (r.ok) ms = await r.json();
+        } catch { /* fallback ci-dessous */ }
+        if (!ms.length) {
+          try { const r2 = await rpc("match_documents", { query_embedding: qe, match_count: 3, filter_bot_id: BOT_ID }); if (r2.ok) ms = await r2.json(); } catch { ms = []; }
+        }
+        for (const m of ms) {
+          if (m.metadata?.source_group === sourceGroup) continue;                       // ré-ingestion de la même source = légitime
+          const mu = m.metadata?.source_uid;
+          if (mu && rows.some((r) => r.source_uid === mu)) continue;                    // même clé (ex. re-crawl produit) = remplacement
+          if (typeof m.similarity === "number" && (!worst || m.similarity > worst.sim))
+            worst = { sim: m.similarity, title: m.metadata?.title || "sans titre" };
+        }
+      }
+      if (worst && worst.sim >= SIM_BLOCK)
+        return json({ error: `quasi-doublon de « ${worst.title} » (similarité ${(worst.sim * 100).toFixed(0)} %) — déjà dans la base` }, 400);
+      if (worst && worst.sim >= SIM_WARN && !force)
+        return json({ warnings: [`très proche de « ${worst.title} » (similarité ${(worst.sim * 100).toFixed(0)} %) — doublon possible`], need_confirm: true }, 409);
+    }
 
     // 2) remplacement idempotent :
     //    a) on efface les chunks PRÉCÉDENTS de cette source (par source_group) -> gère le cas où le

@@ -36,6 +36,17 @@ export interface UpsertInput {
   availability?: string;
 }
 
+// Levée quand le serveur demande une confirmation (HTTP 409 + warnings des gardes d'ingestion) :
+// l'UI affiche les avertissements et ré-envoie avec force=true si l'admin confirme.
+export class IngestNeedsConfirm extends Error {
+  warnings: string[];
+  constructor(warnings: string[]) {
+    super(warnings.join(' · '));
+    this.name = 'IngestNeedsConfirm';
+    this.warnings = warnings;
+  }
+}
+
 async function call<T>(payload: Record<string, unknown>): Promise<T> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('Session admin requise.');
@@ -49,19 +60,20 @@ async function call<T>(payload: Record<string, unknown>): Promise<T> {
     body: JSON.stringify(payload),
   });
   const data = await res.json().catch(() => ({}));
+  if (res.status === 409 && data?.need_confirm) throw new IngestNeedsConfirm(data.warnings || []);
   if (!res.ok) throw new Error(data?.error || `Erreur ${res.status}`);
   return data as T;
 }
 
-export function ingestUpsert(input: UpsertInput) {
+export function ingestUpsert(input: UpsertInput, force = false) {
   return call<{ ok: true; source_group: string; chunks: number; title: string; type: IngestType; url: string | null }>({
-    action: 'upsert', ...input,
+    action: 'upsert', ...input, force,
   });
 }
 
-export function ingestCrawl(url: string) {
+export function ingestCrawl(url: string, force = false) {
   return call<{ ok: true; source_group: string; chunks: number; title: string; type: IngestType; url: string | null }>({
-    action: 'crawl', url,
+    action: 'crawl', url, force,
   });
 }
 

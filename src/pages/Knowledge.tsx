@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import {
   ingestUpsert, ingestCrawl, ingestList, ingestDelete, ingestClean, extractPdfText, previewChunkCount,
-  type IngestType, type KnowledgeSource, type UpsertInput,
+  IngestNeedsConfirm, type IngestType, type KnowledgeSource, type UpsertInput,
 } from '../lib/ingest';
 
 type Tab = 'add' | 'manage';
@@ -45,7 +45,12 @@ export default function Knowledge() {
 
   const resetForm = () => { setForm(emptyForm); setMode('paste'); };
 
-  const submitUpsert = async () => {
+  // Les gardes serveur peuvent répondre « confirmation requise » (doublon possible, lien mort,
+  // prix hors fiche…) : on affiche les avertissements et on ré-envoie avec force si l'admin assume.
+  const confirmWarnings = (w: string[]) =>
+    confirm(`⚠️ Avertissements :\n\n- ${w.join('\n- ')}\n\nAjouter quand même ?`);
+
+  const submitUpsert = async (force = false) => {
     setBusy(true); setMsg(null);
     try {
       const payload: UpsertInput = {
@@ -58,22 +63,38 @@ export default function Knowledge() {
       if (!payload.title) throw new Error('Titre requis.');
       if (payload.type === 'product' && !payload.url) throw new Error('Une fiche produit nécessite une URL.');
       if (payload.type !== 'product' && !payload.body.trim()) throw new Error('Le corps est vide.');
-      const r = await ingestUpsert(payload);
+      const r = await ingestUpsert(payload, force);
       setMsg({ kind: 'ok', text: `« ${r.title} » ajouté (${r.chunks} chunk${r.chunks > 1 ? 's' : ''}).` });
       resetForm();
       loadList();
-    } catch (e) { setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) }); }
+    } catch (e) {
+      if (e instanceof IngestNeedsConfirm) {
+        setBusy(false);
+        if (confirmWarnings(e.warnings)) return submitUpsert(true);
+        setMsg({ kind: 'err', text: 'Ajout annulé.' });
+        return;
+      }
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
+    }
     finally { setBusy(false); }
   };
 
-  const submitCrawl = async () => {
+  const submitCrawl = async (force = false) => {
     setBusy(true); setMsg(null);
     try {
-      const r = await ingestCrawl(crawlUrl.trim());
+      const r = await ingestCrawl(crawlUrl.trim(), force);
       setMsg({ kind: 'ok', text: `« ${r.title} » importé depuis l'URL (${r.chunks} chunk${r.chunks > 1 ? 's' : ''}).` });
       setCrawlUrl('');
       loadList();
-    } catch (e) { setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) }); }
+    } catch (e) {
+      if (e instanceof IngestNeedsConfirm) {
+        setBusy(false);
+        if (confirmWarnings(e.warnings)) return submitCrawl(true);
+        setMsg({ kind: 'err', text: 'Import annulé.' });
+        return;
+      }
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) });
+    }
     finally { setBusy(false); }
   };
 
@@ -177,7 +198,7 @@ export default function Knowledge() {
               <input value={crawlUrl} onChange={(e) => setCrawlUrl(e.target.value)}
                 placeholder="https://www.bordet.fr/...-c2x1234"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-              <button onClick={submitCrawl} disabled={busy || !crawlUrl.trim()}
+              <button onClick={() => submitCrawl()} disabled={busy || !crawlUrl.trim()}
                 className="flex items-center gap-2 px-4 py-2 bg-red-950 text-white rounded-lg text-sm font-medium hover:bg-red-800 disabled:opacity-50">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Importer l'URL
               </button>
@@ -250,7 +271,7 @@ export default function Knowledge() {
               </div>
 
               <div className="flex gap-2">
-                <button onClick={submitUpsert} disabled={busy || cleaning}
+                <button onClick={() => submitUpsert()} disabled={busy || cleaning}
                   className="flex items-center gap-2 px-4 py-2 bg-red-950 text-white rounded-lg text-sm font-medium hover:bg-red-800 disabled:opacity-50">
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Ajouter à la base
                 </button>
