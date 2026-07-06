@@ -1,8 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
 import Admin from './pages/Admin';
+// lazy : embarque pdf.js — chargé uniquement à l'ouverture de la page (hors bundle du widget public)
+const Knowledge = lazy(() => import('./pages/Knowledge'));
 import FAQ from './pages/FAQ';
 import Login from './pages/Login';
 import Layout from './components/Layout';
@@ -98,6 +100,16 @@ function App() {
             } 
           />
           <Route path="admin" element={<Admin />} />
+          <Route
+            path="knowledge"
+            element={
+              <PrivateRoute requireAdmin>
+                <Suspense fallback={<div className="p-8 text-gray-400">Chargement…</div>}>
+                  <Knowledge />
+                </Suspense>
+              </PrivateRoute>
+            }
+          />
           <Route path="faq" element={<FAQ />} />
         </Route>
       </Routes>

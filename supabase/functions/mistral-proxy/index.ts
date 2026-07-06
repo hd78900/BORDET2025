@@ -274,7 +274,15 @@ Deno.serve(async (req: Request) => {
     const context = matches.map((m) => {
       const u = m.metadata?.url || "";
       const ti = m.metadata?.title ? " — " + m.metadata.title : "";
-      const type = /c2x\d/.test(u) ? "PRODUIT" : /c1200x\d/.test(u) ? "GUIDE" : "EXTRAIT DE LIVRE";
+      // Type = URL en priorité (corpus historique inchangé) ; sinon metadata.source_type
+      // (contenu ajouté via l'UI : catalog/manual sans URL -> GUIDE au lieu du défaut LIVRE).
+      const st = (m.metadata as { source_type?: string } | undefined)?.source_type;
+      const type =
+        /c2x\d/.test(u) ? "PRODUIT" :
+        /c1200x\d/.test(u) ? "GUIDE" :
+        st === "product" ? "PRODUIT" :
+        (st === "article" || st === "catalog" || st === "manual") ? "GUIDE" :
+        "EXTRAIT DE LIVRE";
       // URL dans l'en-tête : le modèle a un lien markdown prêt à citer pour chaque produit.
       const head = u ? `[${type}${ti}](${u})` : `[${type}${ti}]`;
       return `${head}\n${m.content}`;
