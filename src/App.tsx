@@ -15,61 +15,62 @@ import { useAuthStore } from './store/authStore';
 import { supabase } from './lib/supabase';
 
 function PrivateRoute({ children, requireAdmin = false }: { children: React.ReactNode, requireAdmin?: boolean }) {
-  const { user, isAdmin } = useAuthStore();
-  
+  const { user, isAdmin, initializing } = useAuthStore();
+
+  // tant que la session n'est pas restaurée, on n'affiche NI redirect NI contenu (évite le
+  // déloguage au rechargement : sans ça, user=null au 1er rendu -> redirect prématuré vers /login)
+  if (initializing) {
+    return <div className="min-h-screen flex items-center justify-center text-gray-400">Chargement…</div>;
+  }
   if (!user) return <Navigate to="/login" />;
   if (requireAdmin && !isAdmin) return <Navigate to="/" />;
-  
+
   return children;
 }
 
 function App() {
-  const { setUser, setIsAdmin, setAccessibleBots } = useAuthStore();
+  const { setUser, setIsAdmin, setAccessibleBots, setInitializing } = useAuthStore();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-          .then(({ data: profile }) => {
-            if (profile) {
-              setUser({
-                id: profile.id,
-                email: profile.email,
-                is_admin: profile.is_admin,
-              });
-              setIsAdmin(profile.is_admin);
+    let mounted = true;
 
-              if (profile.is_admin) {
-                setAccessibleBots(['bot1']);
-              } else {
-                supabase
-                  .from('user_bot_access')
-                  .select('bot_id')
-                  .eq('user_id', profile.id)
-                  .then(({ data: access }) => {
-                    setAccessibleBots(access?.map(a => a.bot_id) || []);
-                  });
-              }
-            }
-          });
+    // hydrate le store depuis une session Supabase (restaurée du localStorage au rechargement)
+    const hydrate = async (session: import('@supabase/supabase-js').Session | null) => {
+      if (!session?.user) {
+        if (mounted) { setUser(null); setIsAdmin(false); setAccessibleBots([]); }
+        return;
       }
+      const { data: profile } = await supabase
+        .from('user_profiles').select('*').eq('id', session.user.id).single();
+      if (!mounted || !profile) return;
+      setUser({ id: profile.id, email: profile.email, is_admin: profile.is_admin });
+      setIsAdmin(profile.is_admin);
+      if (profile.is_admin) {
+        setAccessibleBots(['bot1']);
+      } else {
+        const { data: access } = await supabase
+          .from('user_bot_access').select('bot_id').eq('user_id', profile.id);
+        if (mounted) setAccessibleBots(access?.map(a => a.bot_id) || []);
+      }
+    };
+
+    // 1) restauration au démarrage : on ne lève le flag qu'UNE FOIS la décision d'auth prise
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      await hydrate(session);
+      if (mounted) setInitializing(false);
     });
 
+    // 2) écoute des changements (déconnexion, refresh de token)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (event) => {
         if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setIsAdmin(false);
-          setAccessibleBots([]);
+          if (mounted) { setUser(null); setIsAdmin(false); setAccessibleBots([]); }
         }
       }
     );
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);

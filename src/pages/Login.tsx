@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
@@ -10,7 +10,12 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { setUser, setIsAdmin, setAccessibleBots } = useAuthStore();
+  const { user, initializing, setUser, setIsAdmin, setAccessibleBots } = useAuthStore();
+
+  // déjà connecté (ex. session restaurée) -> on ne montre pas le formulaire, on renvoie à l'accueil
+  useEffect(() => {
+    if (!initializing && user) navigate('/', { replace: true });
+  }, [initializing, user, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

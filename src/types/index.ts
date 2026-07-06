@@ -52,9 +52,11 @@ export interface AuthState {
   user: User | null;
   isAdmin: boolean;
   accessibleBots: string[];
+  initializing: boolean;   // true tant que la session n'a pas été restaurée (évite le redirect prématuré vers /login)
   setUser: (user: User | null) => void;
   setIsAdmin: (isAdmin: boolean) => void;
   setAccessibleBots: (bots: string[]) => void;
+  setInitializing: (v: boolean) => void;
 }
 
 export interface User {
