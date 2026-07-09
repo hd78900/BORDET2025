@@ -194,7 +194,17 @@ async function buildRows(input: {
   addedBy: string; source?: string;
 }): Promise<{ rows: Row[]; sourceGroup: string }> {
   const { type, title, url, addedBy } = input;
-  const body = cleanMarkdownish(input.body);
+  let body = cleanMarkdownish(input.body);
+  // Dédup : si le corps commence déjà par le titre (fréquent sur les articles crawlés dont
+  // le .PBItemDesc1 répète le <h1>), on le retire pour ne pas avoir le titre en double dans le content.
+  const tnorm = title.trim();
+  if (tnorm) {
+    let head = body.replace(/^\s+/, "");
+    while (head.length > tnorm.length + 10 && head.slice(0, tnorm.length).toLowerCase() === tnorm.toLowerCase()) {
+      head = head.slice(tnorm.length).replace(/^[\s:–—·-]+/, "");
+    }
+    body = head;
+  }
   const now = new Date().toISOString();
   const baseMeta = {
     source_type: type,
