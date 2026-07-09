@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  BarChart3, MessagesSquare, AlertTriangle, Euro, Timer, RefreshCw, X, ExternalLink, PlusCircle, Loader2, Sparkles,
+  BarChart3, MessagesSquare, AlertTriangle, Euro, Timer, RefreshCw, X, ExternalLink, PlusCircle, Loader2, Sparkles, Gauge,
 } from 'lucide-react';
 import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
@@ -17,6 +17,8 @@ const PRICES: Record<string, { inp: number; out: number }> = {
   'mistral-small-latest': { inp: 0.10, out: 0.30 },
 };
 const DEFAULT_PRICE = { inp: 0.40, out: 2.00 };
+// plafond quotidien du circuit-breaker (affichage) — garder synchro avec DAILY_TOKEN_CAP du proxy
+const DAILY_CAP_TOKENS = 3_000_000;
 
 const TOPIC_LABELS: Record<string, string> = {
   'affutage': 'Affûtage', 'tournage': 'Tournage', 'scies': 'Scies', 'rabots': 'Rabots',
@@ -54,6 +56,7 @@ const prettySlug = (url: string) => {
 export default function Analytics() {
   const navigate = useNavigate();
   const [rows, setRows] = useState<LogRow[]>([]);
+  const [budgetUsed, setBudgetUsed] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [digesting, setDigesting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +93,11 @@ export default function Analytics() {
         .gte('created_at', since).order('created_at', { ascending: false }).limit(5000);
       if (error) throw error;
       setRows((data ?? []) as LogRow[]);
+      // jauge du circuit-breaker : consommation de tokens du jour (policy lecture admin)
+      const today = new Date().toISOString().slice(0, 10);
+      const { data: bud } = await supabase.from('daily_token_budget')
+        .select('tokens_used').eq('day', today).maybeSingle();
+      setBudgetUsed(bud?.tokens_used ?? 0);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setLoading(false); setDigesting(null); }
   };
@@ -214,10 +222,13 @@ export default function Analytics() {
       ) : (
         <>
           {/* KPIs */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
             <Kpi icon={MessagesSquare} label="Conversations (7 j)" value={String(agg.convs7)} sub={`${agg.msgs7} échanges`} />
             <Kpi icon={AlertTriangle} label="Sans réponse (7 j)" value={`${agg.noInfoRate7} %`} sub="des échanges" />
             <Kpi icon={Euro} label="Coût estimé (7 j)" value={`$${agg.cost7.toFixed(2)}`} sub={`30 j : $${agg.cost30.toFixed(2)}`} />
+            <Kpi icon={Gauge} label="Budget IA du jour"
+              value={budgetUsed == null ? '—' : `${Math.round(100 * budgetUsed / DAILY_CAP_TOKENS)} %`}
+              sub={budgetUsed == null ? 'plafond quotidien' : `${Math.round(budgetUsed / 1000)}k / ${DAILY_CAP_TOKENS / 1_000_000}M tokens`} />
             <Kpi icon={Timer} label="Latence médiane" value={`${(agg.medLat / 1000).toFixed(1)} s`} sub="7 derniers jours" />
             <Kpi icon={ExternalLink} label="Produit n°1 (30 j)" value={agg.topProduct.slice(0, 18)} sub="le + recommandé" />
             <Kpi icon={Sparkles} label="Intention achat (30 j)" value={String(agg.intentCounts['achat'] ?? 0)} sub="conversations" />

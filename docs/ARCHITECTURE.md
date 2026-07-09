@@ -170,6 +170,7 @@ Durcissement « P0 » appliqué et vérifié en production :
 - **RLS fermée** : `DROP POLICY select_documents_anon` + `REVOKE ALL ON documents FROM anon`. La lecture ne passe que par des RPC `SECURITY DEFINER` bornées (`search_path=''`, opérateur `OPERATOR(public.<=>)` pour pgvector).
 - **Proxy durci** : modèle forcé serveur, température 0,1, tailles bornées, `/embeddings` string unique, **allowlist d'origine**.
 - **Circuit-breaker de coût** : `daily_token_budget` + `reserve_token_budget`/`reconcile_token_budget` (SECURITY DEFINER, réservation atomique pré-appel). Seule mesure qui borne la dépense même après fuite de tout token.
+- **Rate-limit par utilisateur** : `rate_limits` + `consume_rate_limit` (fenêtres fixes atomiques). Par **IP hachée** (8 msg/min et 150/jour en anonyme ; 30/min et 1500/jour authentifié) et par **conversation** (40/jour). Vérifié **avant** tout appel payant ; réponse `429`. Fail-open (le plafond global reste le filet). Aucune IP stockée en clair (hash salé, RGPD). La consommation du jour est visible dans `/analytics` (jauge budget).
 - **Kill-switch** : `widget_settings.proxy_enabled = false` → `503`.
 - **Auth admin serveur** : `ingest-documents` et `analytics` valident le JWT via `auth.getUser` puis vérifient `is_admin` — la protection n'est pas seulement dans l'UI.
 - **Prompts éditables** en base (effet immédiat, sans redéploiement) ; les filtres déterministes restent serveur (non altérables par le prompt).

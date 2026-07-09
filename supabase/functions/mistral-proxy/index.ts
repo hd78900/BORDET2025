@@ -18,7 +18,16 @@ const EMBED_MODEL = "mistral-embed";
 const TEMPERATURE = 0.1;
 const MAX_TOKENS_CLIENT = 1800;
 const MAX_TOKENS_MKT = 2000;
-const DAILY_TOKEN_CAP = 10_000_000;            // 10M/jour (ajusté : 2M trop bas)
+const DAILY_TOKEN_CAP = 3_000_000;             // 3M/jour (10M ne servait qu'aux campagnes de QA)
+
+// ---- anti-abus : limites PAR IP (hachée) et PAR conversation.
+// Le plafond global borne le COÛT ; ces limites empêchent UN abuseur d'accaparer le budget
+// et de rendre le bot muet pour les vrais clients. Fail-open : si le RPC échoue on laisse
+// passer (le circuit-breaker global reste le filet).
+const RL_CHAT_PER_MIN_ANON = 8, RL_CHAT_PER_MIN_AUTH = 30;
+const RL_CHAT_PER_DAY_ANON = 150, RL_CHAT_PER_DAY_AUTH = 1500;
+const RL_CONV_PER_DAY = 40;
+const RL_SALT = "bordet-rl-v1";   // pseudonymisation : jamais d'IP en clair (RGPD)
 const RESERVE_CLIENT = 10000;
 const RESERVE_MKT = 16000;
 const MAX_BODY_BYTES = 80 * 1024;
@@ -95,6 +104,14 @@ function callerRole(req: Request): string {
 
 const env = (k: string) => Deno.env.get(k)!;
 const admin = () => createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
+
+// IP de l'appelant -> hash salé court (clé de rate-limit ; l'IP brute n'est jamais stockée)
+async function ipBucketHash(req: Request): Promise<string> {
+  const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim()
+    || req.headers.get("x-real-ip") || "unknown";
+  const buf = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(RL_SALT + ip));
+  return [...new Uint8Array(buf)].slice(0, 10).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 // ---- sanitization URLs (identique au front : seules les URLs des chunks récupérés survivent) ----
 const norm = (s: string) => s.toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
@@ -177,6 +194,13 @@ Deno.serve(async (req: Request) => {
     return !error && data === true;
   };
   const reconcile = async (real: number, reserved: number) => { await sb.rpc("reconcile_token_budget", { p_delta: real - reserved }); };
+  // rate-limit : true = autorisé. Fail-open volontaire (le plafond global reste le filet).
+  const consume = async (bucket: string, max: number, ttlSec: number) => {
+    try {
+      const { data, error } = await sb.rpc("consume_rate_limit", { p_bucket: bucket, p_max: max, p_ttl_seconds: ttlSec });
+      return error ? true : data === true;
+    } catch { return true; }
+  };
 
   const mistral = (p: string, payload: unknown) => fetch(`${MISTRAL_API_BASE}${p}`, {
     method: "POST",
@@ -207,6 +231,17 @@ Deno.serve(async (req: Request) => {
     const mode = body?.mode === "marketing" ? "marketing" : "client";
     const isAuthCaller = callerRole(req) === "authenticated";
     const marketing = mode === "marketing" && isAuthCaller;
+
+    // ---- anti-abus : rate-limit AVANT tout appel payant (embeddings/LLM) ----
+    {
+      const iph = await ipBucketHash(req);
+      const m = Math.floor(Date.now() / 60_000), d = Math.floor(Date.now() / 86_400_000);
+      const okMin = await consume(`ip:${iph}:m:${m}`, isAuthCaller ? RL_CHAT_PER_MIN_AUTH : RL_CHAT_PER_MIN_ANON, 120);
+      const okDay = okMin && await consume(`ip:${iph}:d:${d}`, isAuthCaller ? RL_CHAT_PER_DAY_AUTH : RL_CHAT_PER_DAY_ANON, 90_000);
+      const okConv = okDay && await consume(`conv:${convId}:d:${d}`, RL_CONV_PER_DAY, 90_000);
+      if (!okMin || !okDay || !okConv)
+        return json({ error: "Vous envoyez des messages trop rapidement — merci de patienter un instant." }, 429);
+    }
     const model = marketing ? LARGE : MEDIUM;  // client -> medium, marketing -> large
     const maxTokens = marketing ? MAX_TOKENS_MKT : MAX_TOKENS_CLIENT;
     const reserveN = marketing ? RESERVE_MKT : RESERVE_CLIENT;
@@ -364,6 +399,12 @@ Deno.serve(async (req: Request) => {
     const input = body?.input;
     if (typeof input !== "string" || !input.length || input.length > MAX_EMBED_CHARS)
       return json({ error: `input doit être une string <= ${MAX_EMBED_CHARS} caractères` }, 400);
+    // même rate-limit minute que le chat (partage la fenêtre IP)
+    {
+      const iph = await ipBucketHash(req);
+      if (!(await consume(`ip:${iph}:m:${Math.floor(Date.now() / 60_000)}`, RL_CHAT_PER_MIN_ANON, 120)))
+        return json({ error: "Trop de requêtes — merci de patienter." }, 429);
+    }
     if (!(await reserve(1200))) return json({ error: "Service très demandé." }, 503);
     const r = await mistral("/embeddings", { model: EMBED_MODEL, input });
     const data = await r.json().catch(() => null);

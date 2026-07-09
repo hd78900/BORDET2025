@@ -165,6 +165,7 @@ Le déploiement complet (SQL + Edge Functions + front) est décrit dans **[docs/
 - **RLS fermée** : accès `anon` **révoqué** sur `documents` ; lecture via RPC `SECURITY DEFINER` bornée.
 - **Modèle forcé** côté serveur, température basse, tailles bornées, **allowlist d'origine**.
 - **Circuit-breaker de coût** : plafond de tokens quotidien (réservation atomique) + **kill-switch** (`widget_settings.proxy_enabled`).
+- **Rate-limit par utilisateur** : limites par IP hachée (minute/jour) et par conversation — un abuseur ne peut ni accaparer le budget ni priver les vrais clients du bot.
 - **Gestion admin** protégée par **JWT Supabase + `is_admin`** (vérifié côté serveur, pas seulement dans l'UI).
 - **RGPD** : les transcripts de conversation sont purgés automatiquement après 90 jours ; aucun identifiant client stocké.
 
