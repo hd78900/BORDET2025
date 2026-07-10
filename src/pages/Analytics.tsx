@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  BarChart3, MessagesSquare, AlertTriangle, Euro, Timer, RefreshCw, X, ExternalLink, PlusCircle, Loader2, Sparkles, Gauge,
+  BarChart3, MessagesSquare, AlertTriangle, Euro, Timer, RefreshCw, X, ExternalLink, PlusCircle, Loader2, Sparkles, Gauge, EyeOff,
 } from 'lucide-react';
 import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
@@ -36,7 +36,7 @@ interface LogRow {
   model: string | null; question: string; no_info: boolean; match_count: number | null;
   top_similarity: number | null; sources_cited: string[] | null;
   prompt_tokens: number | null; completion_tokens: number | null; total_tokens: number | null;
-  latency_ms: number | null; topic: string | null; intent: string | null; outcome: string | null;
+  latency_ms: number | null; topic: string | null; intent: string | null; outcome: string | null; ignored: boolean;
 }
 interface Transcript { question: string; answer: string; created_at: string; }
 
@@ -89,7 +89,7 @@ export default function Analytics() {
       await runDigest();
       const since = new Date(Date.now() - 90 * 86400_000).toISOString();
       const { data, error } = await supabase.from('chat_logs')
-        .select('id, created_at, conversation_id, origin, mode, model, question, no_info, match_count, top_similarity, sources_cited, prompt_tokens, completion_tokens, total_tokens, latency_ms, topic, intent, outcome')
+        .select('id, created_at, conversation_id, origin, mode, model, question, no_info, match_count, top_similarity, sources_cited, prompt_tokens, completion_tokens, total_tokens, latency_ms, topic, intent, outcome, ignored')
         .gte('created_at', since).order('created_at', { ascending: false }).limit(5000);
       if (error) throw error;
       setRows((data ?? []) as LogRow[]);
@@ -110,6 +110,24 @@ export default function Analytics() {
     setTranscript((data ?? []) as Transcript[]);
   };
 
+  // clé de regroupement d'une question (identique à l'agrégation « trous de la base »)
+  const qKey = (s: string) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 120);
+
+  // « Ajouter une réponse » : ouvre la base de connaissances pré-remplie avec la question.
+  const addAnswer = (q: string) => navigate('/knowledge', { state: { prefill: { title: q } } });
+
+  // « Ignorer » : retire durablement la question de la liste (flag `ignored` en base, pour tous les admins).
+  const ignoreQuestion = async (q: string) => {
+    const key = qKey(q);
+    const ids = rows
+      .filter((r) => !r.ignored && (r.no_info || r.outcome === 'sans-reponse') && qKey(r.question) === key)
+      .map((r) => r.id);
+    if (!ids.length) return;
+    setRows((prev) => prev.map((r) => (ids.includes(r.id) ? { ...r, ignored: true } : r)));   // masquage optimiste
+    const { error } = await supabase.from('chat_logs').update({ ignored: true }).in('id', ids);
+    if (error) setError(`Impossible d'ignorer : ${error.message}`);
+  };
+
   // ---------- agrégats ----------
   const agg = useMemo(() => {
     const now = Date.now();
@@ -117,8 +135,9 @@ export default function Analytics() {
     const r7 = rows.filter((r) => Date.parse(r.created_at) >= d7);
     const r30 = rows.filter((r) => Date.parse(r.created_at) >= d30);
 
-    // une réponse est un "trou" si le RAG n'a rien remonté (no_info) OU si le digest IA l'a classée sans réponse
-    const isGap = (r: LogRow) => r.no_info || r.outcome === 'sans-reponse';
+    // une réponse est un "trou" si le RAG n'a rien remonté (no_info) OU si le digest IA l'a classée
+    // sans réponse — sauf si un admin l'a explicitement ignorée.
+    const isGap = (r: LogRow) => !r.ignored && (r.no_info || r.outcome === 'sans-reponse');
     const convs7 = new Set(r7.map((r) => r.conversation_id)).size;
     const gapConvs7 = new Set(r7.filter(isGap).map((r) => r.conversation_id)).size;
     const cost7 = r7.reduce((s, r) => s + cost(r), 0);
@@ -285,13 +304,18 @@ export default function Analytics() {
               {agg.unansweredTop.length ? (
                 <ul className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
                   {agg.unansweredTop.map((u) => (
-                    <li key={u.q} className="flex items-center gap-2 px-4 py-2.5">
+                    <li key={u.q} className="group flex items-center gap-2 px-4 py-2.5 hover:bg-gray-50/60">
                       <span className="text-xs font-semibold text-amber-700 bg-amber-50 rounded px-1.5 py-0.5 shrink-0">×{u.n}</span>
                       <span className="text-sm text-gray-700 truncate flex-1" title={u.q}>{u.q}</span>
-                      <button onClick={() => navigate('/knowledge', { state: { prefill: { title: u.q } } })}
-                        title="Ajouter ce sujet à la base de connaissances"
-                        className="flex items-center gap-1 text-xs text-red-950 hover:text-red-800 font-medium shrink-0">
-                        <PlusCircle className="h-3.5 w-3.5" /> Ajouter
+                      <button onClick={() => addAnswer(u.q)}
+                        title="Rédiger une réponse dans la base de connaissances"
+                        className="flex items-center gap-1 text-xs text-white bg-red-950 hover:bg-red-800 rounded-md px-2 py-1 font-medium shrink-0">
+                        <PlusCircle className="h-3.5 w-3.5" /> Ajouter une réponse
+                      </button>
+                      <button onClick={() => ignoreQuestion(u.q)}
+                        title="Retirer cette question de la liste (pour tous les admins)"
+                        className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 shrink-0">
+                        <EyeOff className="h-3.5 w-3.5" /> Ignorer
                       </button>
                     </li>
                   ))}
