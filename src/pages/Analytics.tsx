@@ -117,8 +117,10 @@ export default function Analytics() {
     const r7 = rows.filter((r) => Date.parse(r.created_at) >= d7);
     const r30 = rows.filter((r) => Date.parse(r.created_at) >= d30);
 
+    // une réponse est un "trou" si le RAG n'a rien remonté (no_info) OU si le digest IA l'a classée sans réponse
+    const isGap = (r: LogRow) => r.no_info || r.outcome === 'sans-reponse';
     const convs7 = new Set(r7.map((r) => r.conversation_id)).size;
-    const noInfo7 = r7.filter((r) => r.no_info).length;
+    const gapConvs7 = new Set(r7.filter(isGap).map((r) => r.conversation_id)).size;
     const cost7 = r7.reduce((s, r) => s + cost(r), 0);
     const cost30 = r30.reduce((s, r) => s + cost(r), 0);
     const lats = r7.map((r) => r.latency_ms ?? 0).filter(Boolean).sort((a, b) => a - b);
@@ -133,7 +135,7 @@ export default function Analytics() {
     for (const r of r30) {
       const b = days[day(r.created_at)];
       if (!b) continue;
-      b.messages++; b.conversations.add(r.conversation_id); b.cout += cost(r); if (r.no_info) b.sansRep++;
+      b.messages++; b.conversations.add(r.conversation_id); b.cout += cost(r); if (isGap(r)) b.sansRep++;
     }
     const series = Object.values(days).map((b) => ({
       jour: fmtDay(b.d), messages: b.messages, conversations: b.conversations.size,
@@ -160,11 +162,15 @@ export default function Analytics() {
     const products = Object.entries(prodCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
     const topProduct = products[0] ? prettySlug(products[0][0]) : '—';
 
-    // questions sans réponse (30 j), groupées
+    // questions sans réponse / trous de la base (30 j) : classées "sans-reponse" par l'IA (ou zéro contexte),
+    // en excluant le hors-sujet (pas un trou de la base) et les messages trop courts (relances/politesses).
     const unanswered: Record<string, { q: string; n: number; last: string }> = {};
-    for (const r of r30) if (r.no_info) {
-      const k = r.question.toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 120);
-      const u = unanswered[k] ?? { q: r.question, n: 0, last: r.created_at };
+    for (const r of r30) {
+      if (!isGap(r) || r.topic === 'hors-sujet') continue;
+      const q = (r.question || '').trim();
+      if (q.split(/\s+/).filter(Boolean).length < 3) continue;
+      const k = q.toLowerCase().replace(/\s+/g, ' ').slice(0, 120);
+      const u = unanswered[k] ?? { q, n: 0, last: r.created_at };
       u.n++; if (r.created_at > u.last) u.last = r.created_at;
       unanswered[k] = u;
     }
@@ -179,7 +185,7 @@ export default function Analytics() {
     }
     const convs = [...convMap.values()].sort((a, b) => b.start.localeCompare(a.start)).slice(0, 50);
 
-    return { convs7, msgs7: r7.length, noInfoRate7: r7.length ? Math.round(100 * noInfo7 / r7.length) : 0,
+    return { convs7, msgs7: r7.length, noInfoRate7: convs7 ? Math.round(100 * gapConvs7 / convs7) : 0,
              cost7, cost30, medLat, series, topics, intentCounts, products, topProduct, unansweredTop, convs };
   }, [rows]);
 
@@ -224,7 +230,7 @@ export default function Analytics() {
           {/* KPIs */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
             <Kpi icon={MessagesSquare} label="Conversations (7 j)" value={String(agg.convs7)} sub={`${agg.msgs7} échanges`} />
-            <Kpi icon={AlertTriangle} label="Sans réponse (7 j)" value={`${agg.noInfoRate7} %`} sub="des échanges" />
+            <Kpi icon={AlertTriangle} label="Sans réponse (7 j)" value={`${agg.noInfoRate7} %`} sub="des conversations" />
             <Kpi icon={Euro} label="Coût estimé (7 j)" value={`$${agg.cost7.toFixed(2)}`} sub={`30 j : $${agg.cost30.toFixed(2)}`} />
             <Kpi icon={Gauge} label="Budget IA du jour"
               value={budgetUsed == null ? '—' : `${Math.round(100 * budgetUsed / DAILY_CAP_TOKENS)} %`}
