@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, X, Minimize2, Maximize2, Copy, Check } from 'lucide-react';
+import { Send, X, Minimize2, Copy, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { getChatResponse } from '../lib/api';
 import { ChatMessage } from '../types';
@@ -38,7 +38,7 @@ export default function WidgetCore({ botId, embedded = false }: WidgetCoreProps)
     if (!isOpen) {
       notifyResize(280, 270);
     } else if (isMinimized) {
-      notifyResize(350, 80);
+      notifyResize(84, 84);
     } else {
       notifyResize(450, 650);
     }
@@ -168,11 +168,37 @@ export default function WidgetCore({ botId, embedded = false }: WidgetCoreProps)
     );
   }
 
+  if (isOpen && isMinimized && !embedded) {
+    return (
+      <div className="w-full h-full flex items-center justify-center" style={{ pointerEvents: 'auto' }}>
+        <button
+          onClick={() => setIsMinimized(false)}
+          title="Rouvrir l'assistant Bordet"
+          className="flex items-center justify-center rounded-full bg-red-950 text-white hover:bg-red-800 transition-all duration-300"
+          style={{
+            width: '64px',
+            height: '64px',
+            fontSize: '32px',
+            fontWeight: 700,
+            lineHeight: 1,
+            border: 'none',
+            cursor: 'pointer',
+            pointerEvents: 'auto',
+            boxShadow: '0 6px 16px rgba(0, 0, 0, 0.25)',
+            fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+          }}
+        >
+          ?
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className={embedded ? 'w-full h-full' : 'w-full h-full'} style={{ pointerEvents: 'auto' }}>
       <div
         className={`bg-white rounded-lg shadow-xl transition-all duration-300 flex flex-col ${positionClasses} ${
-          isMinimized ? 'w-auto h-auto' : embedded ? 'w-full h-full' : 'w-[420px] h-[620px]'
+          embedded ? 'w-full h-full' : 'w-[420px] h-[620px]'
         }`}
         style={{
           boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
@@ -193,8 +219,8 @@ export default function WidgetCore({ botId, embedded = false }: WidgetCoreProps)
           </div>
           <div className="flex items-center space-x-2">
             {!embedded && (
-              <button onClick={toggleMinimize} className="p-1 hover:bg-gray-100 rounded" title={isMinimized ? "Agrandir" : "Reduire"}>
-                {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+              <button onClick={toggleMinimize} className="p-1 hover:bg-gray-100 rounded" title="Reduire">
+                <Minimize2 className="h-4 w-4" />
               </button>
             )}
             <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-gray-100 rounded" title="Fermer">
