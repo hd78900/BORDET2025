@@ -121,11 +121,12 @@ const normPrice = (s: string) => {
   if (t.includes(",")) t = t.replace(/\./g, "").replace(",", ".");
   return t.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
 };
-function sanitizeUrls(response: string, matches: Array<{ content?: string; metadata?: { url?: string; title?: string } }>): string {
+function sanitizeUrls(response: string, matches: Array<{ content?: string; metadata?: { url?: string; title?: string } }>, allowedPrices: number[] = []): string {
   const valid = new Set<string>();
   const urlToTitle = new Map<string, string>();
   const nameToUrl = new Map<string, string>();
   const ctxPrices = new Set<string>();
+  for (const p of allowedPrices) ctxPrices.add(normPrice(String(p)));   // ex. le budget cité par le client
   let ctxText = "";
   for (const m of matches) {
     const url = m.metadata?.url, title = m.metadata?.title;
@@ -410,7 +411,7 @@ Deno.serve(async (req: Request) => {
     if (!cr.ok || !data?.choices?.[0]?.message) return json(data ?? { error: "upstream error" }, cr.status);
 
     // 6) sanitization URLs serveur (seules les URLs des chunks récupérés survivent)
-    const finalAnswer = sanitizeUrls(String(data.choices[0].message.content ?? ""), matches);
+    const finalAnswer = sanitizeUrls(String(data.choices[0].message.content ?? ""), matches, maxBudget ? [maxBudget] : []);
     data.choices[0].message.content = finalAnswer;
     // 7) analytics : journalise l'échange (produits cités = URLs bordet.fr de la réponse finale)
     const cited = [...new Set([...finalAnswer.matchAll(/https:\/\/www\.bordet\.fr\/[^\s)\]"']+/g)].map((m) => m[0]))];
