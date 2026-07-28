@@ -78,7 +78,7 @@ Appuyez-vous EXCLUSIVEMENT sur la base de connaissances ci-dessous ; n'inventez 
 de produits ni d'URLs. Structure d'article : titre, intro, sections (##/###), points clés en gras,
 conclusion avec appel à l'action. Citez les produits via leur URL réelle au format **[Nom](URL)**.`;
 
-const NO_INFO = "Je n'ai pas d'information à ce sujet dans la base de connaissances Bordet. Pouvez-vous reformuler ou préciser votre besoin ?";
+const NO_INFO = "Désolé, je n'ai pas la réponse à votre question pour le moment. Laissez-moi votre **email** ou votre **numéro de téléphone**, et un conseiller Bordet reviendra vers vous rapidement. Vous pouvez aussi reformuler ou préciser votre besoin, je ferai de mon mieux.";
 
 function corsFor(origin: string | null) {
   const allow = !!origin && ALLOWED_ORIGINS.has(origin);
