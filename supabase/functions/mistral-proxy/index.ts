@@ -380,7 +380,7 @@ Deno.serve(async (req: Request) => {
     // 5) génération. Modèle : override BANC D'ESSAI (admin authentifié + allowlist) > marketing large >
     //    chat_model prod (OpenRouter) > Mistral medium. Le widget public (anon) ne peut PAS choisir -> prod intact.
     const orKey = Deno.env.get("OPENROUTER_API_KEY");
-    const ALLOWED_TEST = new Set(["mistral-medium-latest", "openai/gpt-5.4-nano", "google/gemini-3.1-flash-lite"]);
+    const ALLOWED_TEST = new Set(["mistral-medium-latest", "openai/gpt-5.4-nano", "google/gemini-3.5-flash-lite"]);
     const testModel = isAuthCaller && typeof body?.model === "string" && ALLOWED_TEST.has(body.model) ? body.model : null;
     const chatModelGlobal = (ws?.chat_model || "").trim();
     const finalModel = testModel ?? (marketing ? LARGE : (chatModelGlobal || MEDIUM));

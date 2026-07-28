@@ -40,7 +40,7 @@ Assistant conversationnel pour **[bordet.fr](https://www.bordet.fr)** (outillage
 |---|---|
 | **Frontend** | React 18, TypeScript, Vite, Tailwind CSS, Zustand, React Router, Recharts, pdf.js |
 | **Backend** | Supabase — PostgreSQL + **pgvector**, **Edge Functions** (Deno), Auth (GoTrue), RLS |
-| **LLM** | **Mistral** (`mistral-embed` pour les embeddings, `mistral-medium/large` en secours), **OpenRouter** (modèle de chat prod, ex. `google/gemini-3.1-flash-lite`) |
+| **LLM** | **Mistral** (`mistral-embed` pour les embeddings, `mistral-medium/large` en secours), **OpenRouter** (modèle de chat prod, ex. `google/gemini-3.5-flash-lite`) |
 | **Extraction** | `deno-dom` (parsing HTML), lecteur **Jina** (`r.jina.ai`) pour contourner le blocage anti-bot d'Oxatis |
 | **Hébergement** | Frontend sur **Netlify** (auto-deploy sur `main`), backend sur **Supabase** |
 

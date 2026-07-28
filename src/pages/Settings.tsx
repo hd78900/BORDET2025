@@ -183,7 +183,7 @@ export default function Settings() {
 
           <div className="space-y-8">
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-              Modèle du chatbot : <strong>Gemini 3.1 Flash Lite</strong> (via OpenRouter). Réglable et comparable dans le <strong>Banc d'essai</strong>.
+              Modèle du chatbot : <strong>Gemini 3.5 Flash Lite</strong> (via OpenRouter). Réglable et comparable dans le <strong>Banc d'essai</strong>.
             </div>
 
             <div className="space-y-6">

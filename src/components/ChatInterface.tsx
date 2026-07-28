@@ -8,7 +8,7 @@ import { ChatMessage } from '../types';
 
 // Modèles testables + tarif ($/M tokens), aligné avec l'allowlist du proxy mistral-proxy.
 const MODELS = [
-  { id: 'google/gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite', in: 0.25, out: 1.50 },
+  { id: 'google/gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash Lite', in: 0.25, out: 1.50 },
   { id: 'openai/gpt-5.4-nano', label: 'GPT-5.4 nano', in: 0.20, out: 1.25 },
   { id: 'mistral-medium-latest', label: 'Mistral medium', in: 1.50, out: 7.50 },
 ];

@@ -11,7 +11,7 @@ import { supabase } from '../lib/supabase';
 // ---- coûts estimés (USD / 1M tokens) — approximations pour l'ordre de grandeur, pas la compta
 const PRICES: Record<string, { inp: number; out: number }> = {
   'openai/gpt-5.4-nano': { inp: 0.20, out: 1.25 },
-  'google/gemini-3.1-flash-lite': { inp: 0.10, out: 0.40 },
+  'google/gemini-3.5-flash-lite': { inp: 0.10, out: 0.40 },
   'mistral-medium-latest': { inp: 0.40, out: 2.00 },
   'mistral-large-latest': { inp: 2.00, out: 6.00 },
   'mistral-small-latest': { inp: 0.10, out: 0.30 },
