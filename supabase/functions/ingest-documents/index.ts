@@ -476,6 +476,28 @@ Deno.serve(async (req: Request) => {
     return json({ ok: true, deleted: (data ?? []).length });
   }
 
+  // ---- BULK : chargement en lot de lignes DÉJÀ préparées (source_uid + content + metadata).
+  // Pour la ré-ingestion catalogue (feed Doofinder) : embed serveur + upsert idempotent par source_uid,
+  // SANS gardes ni nettoyage (le driver pré-nettoie). Admin only. Lots ≤ 128. ----
+  if (action === "bulk") {
+    const rowsIn = Array.isArray(body?.rows)
+      ? (body.rows as Array<{ source_uid: string; content: string; metadata?: Record<string, unknown> }>) : [];
+    const botId = typeof body?.bot_id === "string" ? body.bot_id : BOT_ID;
+    if (!rowsIn.length) return json({ error: "rows vide" }, 400);
+    if (rowsIn.length > 128) return json({ error: "lot trop grand (max 128)" }, 400);
+    for (const r of rowsIn) if (!r.source_uid || !r.content) return json({ error: "chaque row nécessite source_uid + content" }, 400);
+    let vectors: number[][];
+    try { vectors = await embedAll(rowsIn.map((r) => r.content), mistralKey); }
+    catch (e) { return json({ error: `embeddings: ${e instanceof Error ? e.message : e}` }, 502); }
+    const toUpsert = rowsIn.map((r, i) => ({
+      bot_id: botId, source_uid: r.source_uid, content: r.content,
+      metadata: r.metadata ?? {}, embedding: `[${vectors[i].join(",")}]`,
+    }));
+    const { error } = await sb.from("documents").upsert(toUpsert, { onConflict: "bot_id,source_uid" });
+    if (error) return json({ error: `upsert: ${error.message}` }, 500);
+    return json({ ok: true, upserted: toUpsert.length });
+  }
+
   // ---- UPSERT / CRAWL : produisent une source puis embeddent + remplacent ----
   if (action === "upsert" || action === "crawl") {
     let src: {
