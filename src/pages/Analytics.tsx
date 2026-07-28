@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  BarChart3, MessagesSquare, AlertTriangle, Euro, Timer, RefreshCw, X, ExternalLink, PlusCircle, Loader2, Sparkles, Gauge, EyeOff,
+  BarChart3, MessagesSquare, AlertTriangle, Euro, Timer, RefreshCw, X, ExternalLink, PlusCircle, Loader2, Sparkles, Gauge, EyeOff, Phone, Mail,
 } from 'lucide-react';
 import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
@@ -30,6 +30,11 @@ const OUTCOME_BADGE: Record<string, string> = {
   'repondu': 'bg-green-50 text-green-700', 'sans-reponse': 'bg-amber-50 text-amber-700',
   'insatisfait': 'bg-red-50 text-red-700',
 };
+// détection des coordonnées laissées par un client dans ses messages
+const EMAIL_RE = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i;
+const PHONE_RE = /(?<!\d)(?:\+33[\s.-]?|0)[1-9](?:[\s.-]?\d{2}){4}(?!\d)/;
+// coordonnées propres à Bordet (à ne pas prendre pour un lead client)
+const OWN_CONTACTS = new Set(['0141534040', 'info@bordet.fr']);
 
 interface LogRow {
   id: number; created_at: string; conversation_id: string; origin: string; mode: string;
@@ -204,8 +209,26 @@ export default function Analytics() {
     }
     const convs = [...convMap.values()].sort((a, b) => b.start.localeCompare(a.start)).slice(0, 50);
 
+    // contacts (email / téléphone) laissés par les clients dans leurs messages -> liste « à rappeler »
+    const byConvAll = new Map<string, LogRow[]>();
+    for (const r of rows) { const arr = byConvAll.get(r.conversation_id); if (arr) arr.push(r); else byConvAll.set(r.conversation_id, [r]); }
+    const leads: { id: string; date: string; email: string | null; phone: string | null; need: string; topic: string | null }[] = [];
+    for (const [cid, rs] of byConvAll) {
+      const sorted = [...rs].sort((a, b) => a.created_at.localeCompare(b.created_at));
+      let email: string | null = null, phone: string | null = null;
+      for (const r of sorted) {
+        const q = r.question || '';
+        if (!email) { const m = q.match(EMAIL_RE); if (m && !OWN_CONTACTS.has(m[0].toLowerCase())) email = m[0]; }
+        if (!phone) { const m = q.match(PHONE_RE); if (m && !OWN_CONTACTS.has(m[0].replace(/\D/g, ''))) phone = m[0].replace(/[.\s]+/g, ' ').trim(); }
+      }
+      if (!email && !phone) continue;
+      const need = sorted.map((r) => r.question).find((q) => q && !EMAIL_RE.test(q) && q.replace(PHONE_RE, '').trim().length > 8) || sorted[0].question;
+      leads.push({ id: cid, date: sorted[0].created_at, email, phone, need, topic: sorted.find((r) => r.topic)?.topic ?? null });
+    }
+    leads.sort((a, b) => b.date.localeCompare(a.date));
+
     return { convs7, msgs7: r7.length, noInfoRate7: convs7 ? Math.round(100 * gapConvs7 / convs7) : 0,
-             cost7, cost30, medLat, series, topics, intentCounts, products, topProduct, unansweredTop, convs };
+             cost7, cost30, medLat, series, topics, intentCounts, products, topProduct, unansweredTop, convs, leads };
   }, [rows]);
 
   const Kpi = ({ icon: Icon, label, value, sub }: { icon: any; label: string; value: string; sub?: string }) => (
@@ -258,6 +281,41 @@ export default function Analytics() {
             <Kpi icon={ExternalLink} label="Produit n°1 (30 j)" value={agg.topProduct.slice(0, 18)} sub="le + recommandé" />
             <Kpi icon={Sparkles} label="Intention achat (30 j)" value={String(agg.intentCounts['achat'] ?? 0)} sub="conversations" />
           </div>
+
+          {/* Contacts à rappeler (leads laissés par les clients) */}
+          {agg.leads.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-green-100 mb-6">
+              <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+                <Phone className="h-4 w-4 text-green-600" />
+                <p className="text-sm font-medium text-gray-700">Contacts à rappeler ({agg.leads.length}) — coordonnées laissées par des clients</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-gray-400 border-b border-gray-50">
+                      <th className="px-4 py-2 font-medium">Date</th>
+                      <th className="px-2 py-2 font-medium">Contact</th>
+                      <th className="px-2 py-2 font-medium">Besoin</th>
+                      <th className="px-2 py-2 font-medium text-right pr-4">Conversation</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {agg.leads.map((l) => (
+                      <tr key={l.id} className="hover:bg-green-50/40">
+                        <td className="px-4 py-2 text-gray-500 whitespace-nowrap">{new Date(l.date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                        <td className="px-2 py-2 whitespace-nowrap space-y-0.5">
+                          {l.email && <a href={`mailto:${l.email}`} className="flex items-center gap-1 text-red-950 hover:underline"><Mail className="h-3.5 w-3.5 shrink-0" />{l.email}</a>}
+                          {l.phone && <a href={`tel:${l.phone.replace(/\s/g, '')}`} className="flex items-center gap-1 text-red-950 hover:underline"><Phone className="h-3.5 w-3.5 shrink-0" />{l.phone}</a>}
+                        </td>
+                        <td className="px-2 py-2 text-gray-700 max-w-md truncate" title={l.need}>{l.need}</td>
+                        <td className="px-2 py-2 text-right pr-4"><button onClick={() => openTranscript(l.id)} className="text-xs text-gray-500 hover:text-gray-900">voir</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Courbes */}
           <div className="grid md:grid-cols-2 gap-4 mb-6">
