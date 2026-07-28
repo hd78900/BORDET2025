@@ -18,7 +18,15 @@ Usage :
 
 Options : --limit N (n premiers produits) · --batch N (taille de lot, défaut 100) · --dry-run · --feed URL
 """
-import argparse, csv, io, html, re, json, os, sys, time, getpass, urllib.request, urllib.error
+import argparse, csv, io, html, re, json, os, sys, time, getpass, ssl, urllib.request, urllib.error
+
+# CA bundle explicite : les Python python.org sur macOS n'ont pas les certificats système
+# (sinon "CERTIFICATE_VERIFY_FAILED"). On s'appuie sur certifi si dispo.
+try:
+    import certifi
+    SSL_CTX = ssl.create_default_context(cafile=certifi.where())
+except Exception:
+    SSL_CTX = ssl.create_default_context()
 
 FEED_URL = "https://www.bordet.fr/Data/doofinder-all/fr/Oxatis-fr-bordet-38902.csv"
 SUPABASE_URL = os.environ.get("VITE_SUPABASE_URL", "https://yyzfuqebakvgecekfqcw.supabase.co")
@@ -85,7 +93,7 @@ def http(method, url, headers, body=None, timeout=180):
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(url, data=data, method=method, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout, context=SSL_CTX) as resp:
             return resp.status, json.loads(resp.read() or "null")
     except urllib.error.HTTPError as e:
         try:
@@ -115,7 +123,7 @@ def main():
     feed_req = urllib.request.Request(args.feed, headers={
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
         "Accept": "text/csv,*/*;q=0.8", "Accept-Language": "fr-FR,fr;q=0.9"})
-    with urllib.request.urlopen(feed_req, timeout=120) as r:
+    with urllib.request.urlopen(feed_req, timeout=120, context=SSL_CTX) as r:
         raw = r.read()
     rows = list(csv.DictReader(io.StringIO(raw.decode("cp1252", errors="replace")), delimiter=";"))
     built = [b for b in (build_row(r) for r in rows) if b]
