@@ -222,6 +222,10 @@ export default function Analytics() {
         if (!phone) { const m = q.match(PHONE_RE); if (m && !OWN_CONTACTS.has(m[0].replace(/\D/g, ''))) phone = m[0].replace(/[.\s]+/g, ' ').trim(); }
       }
       if (!email && !phone) continue;
+      // ne surface que les leads issus du flux de capture : conversation où Raymond n'a PAS pu répondre
+      // (échec = no_info ou classée « sans-reponse » par l'IA). On écarte ainsi les coordonnées données
+      // dans une conversation déjà résolue (pas un vrai lead de rappel).
+      if (!sorted.some((x) => x.no_info || x.outcome === 'sans-reponse')) continue;
       const need = sorted.map((r) => r.question).find((q) => q && !EMAIL_RE.test(q) && q.replace(PHONE_RE, '').trim().length > 8) || sorted[0].question;
       leads.push({ id: cid, date: sorted[0].created_at, email, phone, need, topic: sorted.find((r) => r.topic)?.topic ?? null });
     }
