@@ -165,6 +165,17 @@ function sanitizeUrls(response: string, matches: Array<{ content?: string; metad
   return out;
 }
 
+// Détecte une contrainte de budget MAX (« moins de 60 € », « sous 100 euros », « max 50€ », « jusqu'à 200 € »…).
+// Exige le mot €/euro pour ne pas confondre avec une cote (« moins de 3 mm »). Renvoie le montant, sinon null.
+function detectMaxBudget(msg: string): number | null {
+  const m = msg.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const re = /(?:moins de|sous(?: les)?|en dessous de|au max(?:imum)?|maxi?(?:mum)?|jusqu'?a|budget (?:de |max\w* )?|pas plus de|inferieure? a|<=?)\s*(\d[\d ]*\d|\d)\s*(?:€|eur\w*)/;
+  const mm = re.exec(m);
+  if (!mm) return null;
+  const n = parseInt(mm[1].replace(/ /g, ""), 10);
+  return Number.isFinite(n) && n > 0 && n < 1_000_000 ? n : null;
+}
+
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get("Origin");
   const cors = corsFor(origin);
@@ -297,7 +308,7 @@ Deno.serve(async (req: Request) => {
 
     // fusion : interleave (priorité au 1er = message courant), dédup par URL, top MATCH_COUNT
     const seenKeys = new Set<string>();
-    const matches: Match[] = [];
+    let matches: Match[] = [];
     for (let i = 0; i < MATCH_COUNT && matches.length < MATCH_COUNT; i++) {
       for (const list of lists) {
         const m = list[i];
@@ -321,6 +332,26 @@ Deno.serve(async (req: Request) => {
       return json({ model, conversation_id: convId, choices: [{ message: { role: "assistant", content: NO_INFO } }], usage: { total_tokens: 50 } });
     }
 
+    // 3b) GARDE-FOU PRIX : si l'utilisateur pose une contrainte de budget, on retire du contexte les PRODUITS
+    //     hors budget (déterministe). Le modèle ne peut alors recommander que du sous-budget, et si rien
+    //     n'entre, on l'instruit de le dire honnêtement plutôt que de proposer plus cher.
+    let budgetNote = "";
+    const maxBudget = detectMaxBudget(userMessage);
+    if (maxBudget) {
+      const priceOf = (m: Match) => {
+        const p = (m.metadata as { price?: number } | undefined)?.price;
+        return typeof p === "number" ? p : null;
+      };
+      const within = matches.filter((m) => { const p = priceOf(m); return p !== null && p <= maxBudget; });
+      const noPrice = matches.filter((m) => priceOf(m) === null);   // guides / articles / produits sans prix
+      if (within.length > 0) {
+        matches = [...within, ...noPrice];   // produits hors budget retirés -> leurs URLs seront aussi filtrées par sanitizeUrls
+        budgetNote = `\n\nCONTRAINTE BUDGET : le client veut du ≤ ${maxBudget} € TTC. Les produits ci-dessus sont DÉJÀ filtrés sous ce budget — ne recommande QUE ceux-là, ne propose rien de plus cher.`;
+      } else {
+        budgetNote = `\n\nCONTRAINTE BUDGET : le client veut du ≤ ${maxBudget} € TTC, mais AUCUN produit pertinent n'est sous ce budget. Dis-le clairement et honnêtement (ne baisse aucun prix, n'invente rien), et propose d'élargir le budget ou de préciser le besoin.`;
+      }
+    }
+
     // 4) assemblage serveur : prompt + contexte RAG (le client ne contrôle ni l'un ni l'autre)
     const context = matches.map((m) => {
       const u = m.metadata?.url || "";
@@ -342,7 +373,7 @@ Deno.serve(async (req: Request) => {
     const { data: ws } = await sb.from("widget_settings").select("client_prompt, marketing_prompt, chat_model").eq("id", 1).maybeSingle();
     const clientP = (ws?.client_prompt || "").trim() || CLIENT_PROMPT;
     const mktP = (ws?.marketing_prompt || "").trim() || MARKETING_PROMPT;
-    const sys = `${marketing ? mktP : clientP}\n\nContexte de la base de connaissances:\n${context}`;
+    const sys = `${marketing ? mktP : clientP}\n\nContexte de la base de connaissances:\n${context}${budgetNote}`;
     const messages = [{ role: "system", content: sys }, ...history, { role: "user", content: userMessage }];
 
     // 5) génération. Modèle : override BANC D'ESSAI (admin authentifié + allowlist) > marketing large >
