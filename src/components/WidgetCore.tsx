@@ -103,12 +103,13 @@ export default function WidgetCore({ botId, embedded = false }: WidgetCoreProps)
     }
   };
 
-  // Croix du chat : reduit en bulle "?" et memorise le choix pour toute la visite
+  // Croix (chat ouvert OU gros bouton d'accueil) : reduit en bulle "?" et memorise le choix pour toute la visite
   const handleDismiss = () => {
     if (embedded) {
       setIsOpen(false);
       return;
     }
+    setIsOpen(true);
     setIsMinimized(true);
     try {
       sessionStorage.setItem(dismissKey, '1');
@@ -152,6 +153,15 @@ export default function WidgetCore({ botId, embedded = false }: WidgetCoreProps)
     return (
       <div className="w-full h-full" style={{ pointerEvents: 'auto' }}>
         <div className="fixed bottom-4 right-4 group" style={{ pointerEvents: 'auto' }}>
+          <button
+            onClick={handleDismiss}
+            title="Masquer l'assistant"
+            aria-label="Masquer l'assistant"
+            className="absolute z-10 flex items-center justify-center rounded-full bg-white text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
+            style={{ top: '2px', right: '2px', width: '26px', height: '26px', border: '1px solid #e5e7eb', boxShadow: '0 2px 5px rgba(0, 0, 0, 0.15)', padding: 0, cursor: 'pointer', pointerEvents: 'auto' }}
+          >
+            <X className="h-4 w-4" />
+          </button>
           <button
             onClick={toggleWidget}
             className="hover:opacity-90 transition-opacity duration-300 block relative"
