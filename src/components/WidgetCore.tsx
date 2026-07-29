@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, X, Minimize2, Copy, Check } from 'lucide-react';
+import { Send, X, Copy, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { getChatResponse } from '../lib/api';
 import { ChatMessage } from '../types';
@@ -90,11 +90,6 @@ export default function WidgetCore({ botId, embedded = false }: WidgetCoreProps)
         setTimeout(() => setShowWelcomeBubble(false), 8000);
       }
     }
-  };
-
-  const toggleMinimize = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsMinimized(!isMinimized);
   };
 
   const components = {
@@ -218,12 +213,7 @@ export default function WidgetCore({ botId, embedded = false }: WidgetCoreProps)
             <h3 className="font-semibold text-base">{currentBot.name}</h3>
           </div>
           <div className="flex items-center space-x-2">
-            {!embedded && (
-              <button onClick={toggleMinimize} className="p-1 hover:bg-gray-100 rounded" title="Reduire">
-                <Minimize2 className="h-4 w-4" />
-              </button>
-            )}
-            <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-gray-100 rounded" title="Fermer">
+            <button onClick={() => (embedded ? setIsOpen(false) : setIsMinimized(true))} className="p-1 hover:bg-gray-100 rounded" title="Reduire">
               <X className="h-4 w-4" />
             </button>
           </div>
