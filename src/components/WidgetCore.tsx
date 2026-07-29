@@ -11,8 +11,19 @@ interface WidgetCoreProps {
 }
 
 export default function WidgetCore({ botId, embedded = false }: WidgetCoreProps) {
-  const [isOpen, setIsOpen] = useState(embedded);
-  const [isMinimized, setIsMinimized] = useState(false);
+  // Le visiteur a-t-il deja reduit le chat pendant cette visite ? (persiste entre les pages du site,
+  // portee onglet via sessionStorage — remis a zero quand il quitte le site, pas de memorisation entre visites)
+  const dismissKey = `bordet_widget_dismissed_${botId}`;
+  const wasDismissed = () => {
+    if (embedded || typeof window === 'undefined') return false;
+    try {
+      return sessionStorage.getItem(dismissKey) === '1';
+    } catch {
+      return false;
+    }
+  };
+  const [isOpen, setIsOpen] = useState(() => embedded || wasDismissed());
+  const [isMinimized, setIsMinimized] = useState(() => wasDismissed());
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -89,6 +100,20 @@ export default function WidgetCore({ botId, embedded = false }: WidgetCoreProps)
         setShowWelcomeBubble(true);
         setTimeout(() => setShowWelcomeBubble(false), 8000);
       }
+    }
+  };
+
+  // Croix du chat : reduit en bulle "?" et memorise le choix pour toute la visite
+  const handleDismiss = () => {
+    if (embedded) {
+      setIsOpen(false);
+      return;
+    }
+    setIsMinimized(true);
+    try {
+      sessionStorage.setItem(dismissKey, '1');
+    } catch {
+      /* sessionStorage indisponible (navigation privee stricte) : on ignore */
     }
   };
 
@@ -213,7 +238,7 @@ export default function WidgetCore({ botId, embedded = false }: WidgetCoreProps)
             <h3 className="font-semibold text-base">{currentBot.name}</h3>
           </div>
           <div className="flex items-center space-x-2">
-            <button onClick={() => (embedded ? setIsOpen(false) : setIsMinimized(true))} className="p-1 hover:bg-gray-100 rounded" title="Reduire">
+            <button onClick={handleDismiss} className="p-1 hover:bg-gray-100 rounded" title="Reduire">
               <X className="h-4 w-4" />
             </button>
           </div>
