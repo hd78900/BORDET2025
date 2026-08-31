@@ -1,0 +1,47 @@
+/*
+  # Planification du cron hebdomadaire — À EXÉCUTER DANS LE SQL EDITOR SUPABASE
+  #
+  # Fichier d'EXEMPLE : remplacez <CRON_SECRET> par le secret que vous avez posé avec
+  #   supabase secrets set CRON_SECRET="…"
+  # NE COMMITTEZ PAS ce fichier une fois le secret rempli (gardez le .example intact).
+  #
+  # Prérequis : migration 20260804100000_weekly_product_sync.sql appliquée
+  #             + `supabase functions deploy sync-products`
+*/
+
+CREATE EXTENSION IF NOT EXISTS pg_cron  WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS pg_net   WITH SCHEMA extensions;
+
+-- Rejouable : on retire l'ancienne planification si elle existe.
+SELECT cron.unschedule('weekly-product-sync')
+WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'weekly-product-sync');
+
+-- Tous les lundis à 03:00 UTC (04:00 hiver / 05:00 été, heure de Paris) : trafic minimal.
+SELECT cron.schedule(
+  'weekly-product-sync',
+  '0 3 * * 1',
+  $$
+  SELECT net.http_post(
+    url     := 'https://yyzfuqebakvgecekfqcw.supabase.co/functions/v1/sync-products',
+    headers := jsonb_build_object(
+                 'Content-Type',   'application/json',
+                 -- clé anon : publique (déjà dans le JS du site), exigée par la plateforme
+                 'Authorization',  'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5emZ1cWViYWt2Z2VjZWtmcWN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzkxMTY2OTUsImV4cCI6MjA1NDY5MjY5NX0.1AEAitZgXkLZkGobQxTh1FA8_1SeGfqhMuWjyMAiHDI',
+                 -- secret propre à la fonction : c'est LUI qui autorise réellement la synchro
+                 'x-cron-secret',  '<CRON_SECRET>'
+               ),
+    body    := '{"depth":0}'::jsonb,
+    timeout_milliseconds := 30000
+  );
+  $$
+);
+
+-- Ménage du journal des synchros : une fois par mois.
+SELECT cron.unschedule('monthly-product-sync-log-prune')
+WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'monthly-product-sync-log-prune');
+
+SELECT cron.schedule('monthly-product-sync-log-prune', '0 4 1 * *',
+                     $$ SELECT public.prune_product_sync_runs(); $$);
+
+-- Vérification
+SELECT jobname, schedule, active FROM cron.job ORDER BY jobname;
