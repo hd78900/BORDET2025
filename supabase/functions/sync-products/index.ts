@@ -320,7 +320,7 @@ Deno.serve(async (req: Request) => {
       started_at: startedAt, finished_at: new Date().toISOString(), depth, status,
       duration_ms: Date.now() - t0, ...stats,
     });
-    return json({ ok: status === "ok" || status === "partial", status, depth, ...stats }, httpCode);
+    return json({ ok: status !== "error", status, depth, ...stats }, httpCode);
   };
 
   try {

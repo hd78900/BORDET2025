@@ -107,6 +107,49 @@ Après un déploiement complet :
 
 ---
 
+## Synchronisation hebdomadaire du catalogue
+
+Le catalogue produits est ré-alimenté automatiquement depuis le **feed Doofinder d'Oxatis**
+(`https://www.bordet.fr/Data/doofinder-all/fr/Oxatis-fr-bordet-38902.csv`, 5 492 fiches) par
+l'Edge Function **`sync-products`**, déclenchée par `pg_cron` **chaque lundi à 03:00 UTC**.
+
+**Fonctionnement.** La fonction télécharge le CSV (cp1252), reconstruit chaque fiche exactement comme
+`scripts/ingest_products_feed.py`, puis compare une **empreinte SHA-256** du contenu avec celle déjà
+en base (RPC `product_feed_fingerprints`). Seules les fiches **nouvelles ou modifiées** sont
+ré-embeddées : une semaine sans changement coûte 0 embedding et s'exécute en ~2,5 s.
+Les fiches disparues du feed sont supprimées — **uniquement** celles portant `added_via = 'feed'`,
+jamais le contenu ajouté à la main via la Base de connaissances.
+
+**Garde-fous.** Purge bloquée si le feed revient anormalement petit (< 3 000 lignes) ; validation que
+la réponse est bien le CSV attendu (et non une page d'erreur en HTTP 200) ; exécution bornée à 480
+fiches par invocation avec auto-relance (le diff étant recalculé à chaque passage, une interruption
+se reprend d'elle-même).
+
+**Suivi.** Table `product_sync_runs` (lecture admin) : `select * from product_sync_runs order by started_at desc limit 10;`
+
+### ⚠️ Repli temporaire : le feed est bloqué côté serveur
+
+La protection **Cloudflare de bordet.fr renvoie 403 à toute IP de datacenter** (vérifié : IP de sortie
+AWS `13.39.50.71`, cinq profils d'en-têtes testés, même page d'erreur à chaque fois). La fonction ne
+peut donc pas télécharger le feed elle-même pour l'instant, et le cron du lundi échoue.
+
+En attendant qu'Oxatis ouvre l'accès (demande d'exception WAF sur `/Data/doofinder-all/*`), un poste
+en **IP résidentielle** relaie le fichier : `scripts/sync_feed_push.sh` télécharge le CSV, le compresse
+et le **pousse** à la fonction (qui accepte un corps `application/gzip`), laquelle garde toute son
+intelligence. Lancement automatique le lundi 9h30 via `scripts/fr.bordet.sync-products.plist` :
+
+```bash
+cp scripts/fr.bordet.sync-products.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/fr.bordet.sync-products.plist
+# journal : ~/Library/Logs/bordet-sync-products.log
+```
+
+**Le jour où Oxatis aura ouvert l'accès**, le cron du lundi 3h00 réussira tout seul (`product_sync_runs`
+affichera un `status = ok` à cette heure-là) : il suffira alors de retirer le relais avec
+`launchctl unload ~/Library/LaunchAgents/fr.bordet.sync-products.plist`. Aucun code à modifier.
+
+---
+
 ## Exploitation courante
 
 | Besoin | Action |
@@ -117,6 +160,7 @@ Après un déploiement complet :
 | **Ajuster le plafond de coût** | constante `DAILY_TOKEN_CAP` dans `mistral-proxy` (puis redéployer). |
 | **Après modif d'une Edge Function** | `supabase functions deploy <nom> --project-ref $PROJECT_REF`. |
 | **Après modif du front** | `git push origin main` (Netlify redéploie). |
+| **Forcer une synchro catalogue** | `bash scripts/sync_feed_push.sh` (ou appeler `sync-products` avec `{"dry_run":true}` pour un essai à blanc). |
 
 ---
 
@@ -128,6 +172,8 @@ Après un déploiement complet :
 | Routes profondes en 404 | `public/_redirects` absent. |
 | Chat : `503 Service très demandé` | plafond de tokens atteint **ou** kill-switch actif. |
 | Ingestion : `400 contenu identique déjà présent` | garde anti-doublon (comportement normal). |
+| Synchro : `feed HTTP 403` | blocage Cloudflare des IP serveur → utiliser le relais `scripts/sync_feed_push.sh` (voir ci-dessus). |
+| Synchro : `changed` proche du catalogue entier | les empreintes ne parviennent pas à la fonction — vérifier que `product_feed_fingerprints` renvoie bien un `jsonb` (une TABLE serait tronquée à ~1 000 lignes par PostgREST). |
 | Ingestion : `400 lecture de la page impossible / 403` | le crawl passe par Jina ; si Jina est saturé (`429`), réessayer. |
 | Édition « Gérer » : contenu vide | source ajoutée avant l'activation de `raw_body` → ré-ajouter le contenu. |
 | Déconnexion au rechargement | vérifier la présence du flag `initializing` (session restaurée avant redirection). |

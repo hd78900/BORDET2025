@@ -29,6 +29,7 @@ Assistant conversationnel pour **[bordet.fr](https://www.bordet.fr)** (outillage
 ### Côté back-office (admin)
 - 📊 **Analytics** : volume de conversations, taux « sans réponse », coût estimé, thèmes/intentions (classification IA), questions sans réponse → bouton d'ajout à la base, explorateur de transcripts.
 - 🛢️ **Base de connaissances** : ajout de contenu par **copier-coller**, **import PDF** (extraction + nettoyage IA) ou **crawl d'une URL bordet.fr**, avec **étape de relecture** avant écriture, dédoublonnage, et CRUD complet.
+- 🔄 **Catalogue synchronisé** : les 5 492 fiches produits sont ré-alimentées automatiquement chaque semaine depuis le feed Doofinder ; seules les fiches modifiées sont ré-embeddées.
 - ⚙️ **Paramètres** : édition en direct des prompts (client / marketing), statut de l'IA et de la base, et **gestion des utilisateurs** (comptes, droits).
 - 🧪 **Modèle configurable** : le modèle de chat se change par simple réglage (via OpenRouter), sans redéploiement.
 
@@ -113,6 +114,7 @@ Détails complets : **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 │   │   ├── mistral-proxy/        # Proxy LLM durci + RAG serveur
 │   │   ├── ingest-documents/     # Ajout/gestion de la base de connaissances (admin)
 │   │   ├── analytics/            # Digest IA des conversations + purge RGPD
+│   │   ├── sync-products/        # Synchro hebdomadaire du catalogue (feed Doofinder)
 │   │   └── widget-status/        # Statut du widget
 │   └── migrations/               # SQL (schéma, RPC, RLS, durcissement)
 ├── public/                       # widget.js (embed), _redirects (SPA)
