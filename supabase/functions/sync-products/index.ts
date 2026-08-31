@@ -124,27 +124,53 @@ function buildRow(r: Record<string, string>): Built | null {
 }
 
 // CSV Oxatis : séparateur « ; », champs entre guillemets pouvant contenir des retours à la ligne.
-function parseCsv(text: string, delim = ";"): Record<string, string>[] {
-  const rows: string[][] = [];
-  let field = "", row: string[] = [], inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQuotes) {
-      if (c === '"') {
-        if (text[i + 1] === '"') { field += '"'; i++; } else inQuotes = false;
-      } else field += c;
-    } else if (c === '"') inQuotes = true;
-    else if (c === delim) { row.push(field); field = ""; }
-    else if (c === "\n") { row.push(field); field = ""; rows.push(row); row = []; }
-    else if (c !== "\r") field += c;
+// Parcours par tranches (indexOf + slice) et non caractère par caractère : sur un fichier de 11 Mo,
+// l'accumulation « field += c » sature la mémoire du worker. On expose un callback plutôt qu'un
+// tableau pour ne jamais matérialiser les 5 500 lignes brutes EN PLUS des fiches construites.
+function forEachCsvRow(text: string, delim: string, cb: (row: Record<string, string>) => void): number {
+  const n = text.length, D = delim.charCodeAt(0);
+  let header: string[] | null = null, count = 0, i = 0;
+  let row: string[] = [];
+
+  const flush = () => {
+    if (!header) header = row.map((h) => h.trim());
+    else if (row.length > 1) {
+      const o: Record<string, string> = {};
+      for (let k = 0; k < header.length; k++) o[header[k]] = row[k] ?? "";
+      count++; cb(o);
+    }
+    row = [];
+  };
+
+  while (i < n) {
+    let value: string;
+    if (text.charCodeAt(i) === 34 /* " */) {
+      i++;
+      let start = i, buf: string | null = null;
+      for (;;) {
+        const q = text.indexOf('"', i);
+        if (q < 0) { value = (buf ?? "") + text.slice(start); i = n; break; }
+        if (text.charCodeAt(q + 1) === 34) {            // guillemet échappé ("")
+          buf = (buf ?? "") + text.slice(start, q + 1);
+          i = q + 2; start = i; continue;
+        }
+        value = buf === null ? text.slice(start, q) : buf + text.slice(start, q);
+        i = q + 1; break;
+      }
+    } else {
+      let j = i;
+      while (j < n) { const c = text.charCodeAt(j); if (c === D || c === 10 || c === 13) break; j++; }
+      value = text.slice(i, j); i = j;
+    }
+    row.push(value!);
+
+    if (i >= n) { flush(); break; }
+    const c = text.charCodeAt(i);
+    if (c === D) { i++; continue; }
+    if (c === 13) { i++; if (text.charCodeAt(i) === 10) i++; } else if (c === 10) i++;
+    flush();
   }
-  if (field.length || row.length) { row.push(field); rows.push(row); }
-  const header = (rows.shift() ?? []).map((h) => h.trim());
-  return rows.filter((r) => r.length > 1).map((r) => {
-    const o: Record<string, string> = {};
-    header.forEach((h, i) => { o[h] = r[i] ?? ""; });
-    return o;
-  });
+  return count;
 }
 
 async function sha256Hex(s: string): Promise<string> {
@@ -312,9 +338,9 @@ Deno.serve(async (req: Request) => {
       }, 502);
     }
 
-    const rows = parseCsv(csv);
-    const built = rows.map(buildRow).filter((b): b is Built => b !== null);
-    if (!built.length) return await finish("error", { feed_rows: rows.length, error: "aucun produit exploitable dans le feed" }, 502);
+    const built: Built[] = [];
+    const feedRows = forEachCsvRow(csv, ";", (r) => { const b = buildRow(r); if (b) built.push(b); });
+    if (!built.length) return await finish("error", { feed_rows: feedRows, error: "aucun produit exploitable dans le feed" }, 502);
 
     // 2. Empreintes actuelles en base -> ne retraiter que le nouveau/modifié
     const { data: fps, error: fpErr } = await sb.rpc("product_feed_fingerprints", { p_bot_id: BOT_ID });
@@ -332,7 +358,7 @@ Deno.serve(async (req: Request) => {
 
     if (dryRun) {
       return await finish("dry-run", {
-        feed_rows: rows.length, products: built.length, changed: changed.length,
+        feed_rows: feedRows, products: built.length, changed: changed.length,
         would_process: slice.length, remaining,
       });
     }
@@ -386,7 +412,7 @@ Deno.serve(async (req: Request) => {
     }
 
     return await finish(remaining > 0 ? "partial" : "ok", {
-      feed_rows: rows.length, products: built.length, changed: changed.length,
+      feed_rows: feedRows, products: built.length, changed: changed.length,
       upserted, deleted, remaining, chained, note: pruneNote ?? `feed via ${feedStrategy}`,
     });
   } catch (e) {
