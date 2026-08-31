@@ -237,11 +237,40 @@ Deno.serve(async (req: Request) => {
   if (!okSecret && !okService) return json({ error: "unauthorized" }, 401);
   if (!mistralKey) return json({ error: "MISTRAL_API_KEY manquante" }, 500);
 
-  const body = await req.json().catch(() => ({}));
+  // Deux transports possibles :
+  //  - JSON  : la fonction va chercher le feed elle-même (nominal, quand l'accès serveur est ouvert) ;
+  //  - CSV   : le feed est POUSSÉ dans le corps de la requête (repli quand le WAF de bordet.fr bloque
+  //            les IP de datacenter — un poste sur IP résidentielle télécharge et relaie).
+  //            Corps = octets cp1252 BRUTS du CSV, éventuellement gzippés (Content-Encoding: gzip).
+  const ctype = (req.headers.get("content-type") ?? "").toLowerCase();
+  const qs = new URL(req.url).searchParams;
+  let body: Record<string, unknown> = {};
+  let pushedCsv: string | null = null;
+
+  if (ctype.includes("gzip") || ctype.includes("csv") || ctype.includes("octet-stream")) {
+    try {
+      let bytes = new Uint8Array(await req.arrayBuffer());
+      if (ctype.includes("gzip") || req.headers.get("content-encoding") === "gzip") {
+        const ds = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+        bytes = new Uint8Array(await new Response(ds).arrayBuffer());
+      }
+      pushedCsv = new TextDecoder("windows-1252").decode(bytes);
+    } catch (e) {
+      return json({ error: `CSV poussé illisible : ${e instanceof Error ? e.message : e}` }, 400);
+    }
+    if (!looksLikeFeed(pushedCsv)) return json({ error: "le corps envoyé n'est pas le CSV Doofinder attendu" }, 400);
+    body = { prune: qs.get("prune") !== "false", dry_run: qs.get("dry_run") === "true" };
+  } else {
+    body = await req.json().catch(() => ({}));
+  }
+
   const depth: number = Number(body?.depth ?? 0);
   const prune: boolean = body?.prune !== false;
   const dryRun: boolean = body?.dry_run === true;
   const feedUrl: string = typeof body?.feed === "string" ? body.feed : FEED_URL;
+
+  // Sonde d'authentification : ne fait aucun appel réseau et n'écrit pas dans le journal.
+  if (body?.ping === true) return json({ ok: true, pong: true });
 
   // Mode diagnostic : ne touche à rien, sert à comprendre un blocage du feed
   // (IP de sortie des Edge Functions, en-têtes réellement reçus, réponse par stratégie).
@@ -269,9 +298,10 @@ Deno.serve(async (req: Request) => {
   };
 
   try {
-    // 1. Feed
+    // 1. Feed : soit celui qui vient d'être poussé, soit téléchargé directement.
     let csv: string, feedStrategy: string;
-    try {
+    if (pushedCsv) { csv = pushedCsv; feedStrategy = "push"; }
+    else try {
       const got = await fetchFeed(feedUrl);
       csv = got.csv; feedStrategy = got.strategy;
     } catch (e) {
@@ -341,7 +371,7 @@ Deno.serve(async (req: Request) => {
 
     // 5. Reste du travail -> relance bornée (chaque invocation repart d'un diff frais)
     let chained = false;
-    if (remaining > 0 && depth + 1 < MAX_CHAIN) {
+    if (remaining > 0 && !pushedCsv && depth + 1 < MAX_CHAIN) {
       const next = fetch(`${supaUrl}/functions/v1/sync-products`, {
         method: "POST",
         headers: {

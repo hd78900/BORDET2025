@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Lancement hebdomadaire du relais de feed produits (lundi 9h30).
+  Installation :
+    cp scripts/fr.bordet.sync-products.plist ~/Library/LaunchAgents/
+    launchctl unload ~/Library/LaunchAgents/fr.bordet.sync-products.plist 2>/dev/null
+    launchctl load  ~/Library/LaunchAgents/fr.bordet.sync-products.plist
+  Journal : ~/Library/Logs/bordet-sync-products.log
+  Si le Mac est éteint à l'heure dite, launchd rattrape le lancement au réveil.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>fr.bordet.sync-products</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/danzin/Downloads/REPOSITORY/BORDET/BORDET2025/scripts/sync_feed_push.sh</string>
+  </array>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key><integer>1</integer>
+    <key>Hour</key><integer>9</integer>
+    <key>Minute</key><integer>30</integer>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/Users/danzin/Library/Logs/bordet-sync-products.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/danzin/Library/Logs/bordet-sync-products.log</string>
+
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>
