@@ -345,8 +345,9 @@ Deno.serve(async (req: Request) => {
     // 2. Empreintes actuelles en base -> ne retraiter que le nouveau/modifié
     const { data: fps, error: fpErr } = await sb.rpc("product_feed_fingerprints", { p_bot_id: BOT_ID });
     if (fpErr) return await finish("error", { error: `fingerprints: ${fpErr.message}` }, 500);
-    const known = new Map<string, string>();
-    for (const f of (fps ?? []) as Array<{ source_uid: string; fp: string }>) known.set(f.source_uid, f.fp);
+    // La RPC renvoie UN objet {source_uid: empreinte} : une table serait tronquée par la limite de
+    // lignes de PostgREST (~1 000), et toutes les fiches au-delà passeraient pour « modifiées ».
+    const known = new Map<string, string>(Object.entries((fps ?? {}) as Record<string, string>));
 
     const changed: Built[] = [];
     for (const b of built) {
