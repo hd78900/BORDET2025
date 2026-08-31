@@ -171,6 +171,51 @@ async function embedAll(texts: string[], mistralKey: string): Promise<number[][]
   return vectors;
 }
 
+
+// ---------- récupération du feed ----------
+// bordet.fr (Oxatis) filtre les clients « non navigateur » ET, semble-t-il, certaines IP de
+// datacenter. On essaie plusieurs profils d'en-têtes jusqu'à obtenir un CSV valide, plutôt que
+// de dépendre d'un seul. Le feed est destiné au crawler Doofinder : son UA est donc tenté aussi.
+const UA_CHROME =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+
+const FEED_STRATEGIES: Array<{ name: string; headers: Record<string, string> }> = [
+  { name: "chrome", headers: { "User-Agent": UA_CHROME, "Accept": "text/csv,*/*;q=0.8", "Accept-Language": "fr-FR,fr;q=0.9" } },
+  { name: "chrome-min", headers: { "User-Agent": UA_CHROME } },
+  { name: "chrome-referer", headers: { "User-Agent": UA_CHROME, "Accept": "*/*", "Referer": "https://www.bordet.fr/" } },
+  { name: "doofinder", headers: { "User-Agent": "Doofinder-Bot/1.0 (+https://www.doofinder.com)", "Accept": "*/*" } },
+  { name: "curl", headers: { "User-Agent": "curl/8.4.0", "Accept": "*/*" } },
+];
+
+// Un CSV valide commence par l'en-tête Doofinder : garde-fou contre une page d'erreur en HTTP 200.
+const looksLikeFeed = (t: string) => t.slice(0, 400).includes('"id";"title"');
+
+type FeedAttempt = { strategy: string; status: number; ok: boolean; bytes: number; server: string | null; snippet: string };
+
+async function fetchFeed(url: string): Promise<{ csv: string; strategy: string; attempts: FeedAttempt[] }> {
+  const attempts: FeedAttempt[] = [];
+  for (const st of FEED_STRATEGIES) {
+    try {
+      const r = await fetch(url, { headers: st.headers });
+      const buf = await r.arrayBuffer();
+      // cp1252 obligatoire : le feed Oxatis n'est PAS en UTF-8 (sinon tous les accents cassent).
+      const text = new TextDecoder("windows-1252").decode(buf);
+      const good = r.ok && looksLikeFeed(text);
+      attempts.push({
+        strategy: st.name, status: r.status, ok: good, bytes: buf.byteLength,
+        server: r.headers.get("server"), snippet: text.slice(0, 160).replace(/\s+/g, " "),
+      });
+      if (good) return { csv: text, strategy: st.name, attempts };
+    } catch (e) {
+      attempts.push({ strategy: st.name, status: 0, ok: false, bytes: 0, server: null,
+                      snippet: e instanceof Error ? e.message.slice(0, 160) : String(e).slice(0, 160) });
+    }
+  }
+  const err = new Error("feed inaccessible : " + attempts.map((a) => `${a.strategy}=${a.status}`).join(", "));
+  (err as Error & { attempts?: FeedAttempt[] }).attempts = attempts;
+  throw err;
+}
+
 // ---------- serveur ----------
 
 Deno.serve(async (req: Request) => {
@@ -198,6 +243,19 @@ Deno.serve(async (req: Request) => {
   const dryRun: boolean = body?.dry_run === true;
   const feedUrl: string = typeof body?.feed === "string" ? body.feed : FEED_URL;
 
+  // Mode diagnostic : ne touche à rien, sert à comprendre un blocage du feed
+  // (IP de sortie des Edge Functions, en-têtes réellement reçus, réponse par stratégie).
+  if (body?.diagnose === true) {
+    const egress = await fetch("https://api.ipify.org?format=json").then((r) => r.json()).catch(() => null);
+    const seen = await fetch("https://httpbin.org/headers", {
+      headers: { "User-Agent": UA_CHROME, "Accept": "text/csv,*/*;q=0.8", "Accept-Language": "fr-FR,fr;q=0.9" },
+    }).then((r) => r.json()).catch((e) => ({ error: String(e) }));
+    let attempts: FeedAttempt[] = [];
+    try { attempts = (await fetchFeed(feedUrl)).attempts; }
+    catch (e) { attempts = (e as Error & { attempts?: FeedAttempt[] }).attempts ?? []; }
+    return json({ ok: true, diagnose: true, egress_ip: egress, headers_seen_by_server: seen, feed_attempts: attempts });
+  }
+
   const sb = createClient(supaUrl, serviceKey, { auth: { persistSession: false } });
   const startedAt = new Date().toISOString();
   const t0 = Date.now();
@@ -211,15 +269,18 @@ Deno.serve(async (req: Request) => {
   };
 
   try {
-    // 1. Feed (UA navigateur : Oxatis renvoie 403 aux clients « non navigateur »)
-    const fr = await fetch(feedUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-        "Accept": "text/csv,*/*;q=0.8", "Accept-Language": "fr-FR,fr;q=0.9",
-      },
-    });
-    if (!fr.ok) return await finish("error", { error: `feed HTTP ${fr.status}` }, 502);
-    const csv = new TextDecoder("windows-1252").decode(await fr.arrayBuffer());
+    // 1. Feed
+    let csv: string, feedStrategy: string;
+    try {
+      const got = await fetchFeed(feedUrl);
+      csv = got.csv; feedStrategy = got.strategy;
+    } catch (e) {
+      const att = (e as Error & { attempts?: FeedAttempt[] }).attempts ?? [];
+      return await finish("error", {
+        error: e instanceof Error ? e.message : String(e),
+        note: JSON.stringify(att).slice(0, 900),
+      }, 502);
+    }
 
     const rows = parseCsv(csv);
     const built = rows.map(buildRow).filter((b): b is Built => b !== null);
@@ -296,7 +357,7 @@ Deno.serve(async (req: Request) => {
 
     return await finish(remaining > 0 ? "partial" : "ok", {
       feed_rows: rows.length, products: built.length, changed: changed.length,
-      upserted, deleted, remaining, chained, note: pruneNote,
+      upserted, deleted, remaining, chained, note: pruneNote ?? `feed via ${feedStrategy}`,
     });
   } catch (e) {
     return await finish("error", { error: e instanceof Error ? e.message : String(e) }, 500);
