@@ -72,7 +72,11 @@
     iframe.setAttribute('allowtransparency', 'true');
     iframe.setAttribute('frameborder', '0');
     iframe.setAttribute('scrolling', 'no');
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
+    // allow-popups est INDISPENSABLE : le chat rend ses liens produit en target="_blank", et une
+    // iframe en bac a sable sans cette permission BLOQUE silencieusement l'ouverture — les liens
+    // paraissent alors morts (le clic ne fait rien). allow-popups-to-escape-sandbox evite que la
+    // page ouverte herite des restrictions du bac a sable.
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox');
 
     var messageHandler = function(event) {
       if (event.origin !== WIDGET_CONFIG.expectedOrigin) {

@@ -81,11 +81,26 @@ function cleanDesc(raw: string, title: string): string {
   return s.trim();
 }
 
-function parsePrice(r: Record<string, string>): number | null {
-  const raw = (r["sale_price"] || r["price"] || "").replace(/\u00a0/g, "").replace(/ /g, "").replace(/,/g, ".");
+function parseNum(s: string | undefined): number | null {
+  const raw = (s || "").replace(/\u00a0/g, "").replace(/ /g, "").replace(/,/g, ".");
   const v = parseFloat(raw);
   return Number.isFinite(v) ? Math.round(v * 100) / 100 : null;
 }
+
+// Dans ce feed, `sale_price` porte le prix COURANT de toutes les fiches (5 451/5 492 n'ont que
+// celui-là). Les rares fiches qui portent AUSSI un `price` sont celles EN PROMOTION : `price` est
+// alors le prix barré et `sale_price` le prix remisé. Sans cette distinction, Raymond ne pouvait
+// pas savoir qu'un produit était en promo — il annonçait le prix remisé comme un prix ordinaire.
+function parsePrice(r: Record<string, string>): number | null {
+  return parseNum(r["sale_price"]) ?? parseNum(r["price"]);
+}
+
+function parseListPrice(r: Record<string, string>): number | null {
+  const list = parseNum(r["price"]), cur = parseNum(r["sale_price"]);
+  return list !== null && cur !== null && list > cur ? list : null;
+}
+
+const fmtEur = (v: number) => v.toFixed(2).replace(".", ",");
 
 type Built = { source_uid: string; content: string; metadata: Record<string, unknown> };
 
@@ -98,12 +113,19 @@ function buildRow(r: Record<string, string>): Built | null {
   const brand = (r["brand"] || "").trim();
   const desc = cleanDesc(r["longDescription"], title);
   const price = parsePrice(r);
+  const listPrice = parseListPrice(r);
   const availRaw = (r["availability"] || "").trim();
   const avail = AVAIL[availRaw.toLowerCase()] ?? (availRaw || null);
 
   let content = title + (brand ? ` (${brand})` : "");
   if (desc) content += ` : ${desc}`;
-  if (price !== null) content += "\nPrix : " + price.toFixed(2).replace(".", ",") + " € TTC";
+  if (price !== null) {
+    content += "\nPrix : " + fmtEur(price) + " € TTC";
+    if (listPrice !== null) {
+      const pct = Math.round((1 - price / listPrice) * 100);
+      content += ` — EN PROMOTION : au lieu de ${fmtEur(listPrice)} € TTC${pct > 0 ? `, soit -${pct} %` : ""}`;
+    }
+  }
   if (avail) content += ` — Disponibilité : ${avail}`;
   content += `\nLien : ${url}`;
 
@@ -115,6 +137,7 @@ function buildRow(r: Record<string, string>): Built | null {
       source_type: "product", source: "feed", title, url,
       brand: brand || null, sku: (r["sku"] || "").trim() || null, ean: (r["ean"] || "").trim() || null,
       price, currency: "EUR", availability: avail,
+      ...(listPrice !== null ? { list_price: listPrice, on_promo: true } : {}),
       category: (r["product type"] || "").trim() || null,
       image: (r["image link"] || "").trim() || null,
       item_group_id: (r["item_group_id"] || "").trim() || null,

@@ -54,12 +54,24 @@ def clean_desc(s, title):
     s = re.sub(r"\n{3,}", "\n\n", s)
     return s.strip()
 
-def parse_price(r):
-    p = (r.get("sale_price") or r.get("price") or "").replace("\xa0", "").replace(" ", "").replace(",", ".")
+def _num(v):
+    s = (v or "").replace("\xa0", "").replace(" ", "").replace(",", ".")
     try:
-        return round(float(p), 2)
+        return round(float(s), 2)
     except ValueError:
         return None
+
+# Dans ce feed, `sale_price` porte le prix COURANT de toutes les fiches ; les rares fiches qui
+# portent AUSSI un `price` sont celles EN PROMOTION (price = prix barré, sale_price = prix remisé).
+# Doit rester aligné sur supabase/functions/sync-products/index.ts, sinon un rechargement manuel
+# réécrirait tout le catalogue en perdant les promotions.
+def parse_price(r):
+    p = _num(r.get("sale_price"))
+    return p if p is not None else _num(r.get("price"))
+
+def parse_list_price(r):
+    lst, cur = _num(r.get("price")), _num(r.get("sale_price"))
+    return lst if (lst is not None and cur is not None and lst > cur) else None
 
 def build_row(r):
     title = norm_ws(r.get("title"))
@@ -76,6 +88,12 @@ def build_row(r):
         content += f" : {desc}"
     if price is not None:
         content += "\nPrix : " + f"{price:.2f}".replace(".", ",") + " € TTC"
+        list_price = parse_list_price(r)
+        if list_price is not None:
+            pct = round((1 - price / list_price) * 100)
+            content += " — EN PROMOTION : au lieu de " + f"{list_price:.2f}".replace(".", ",") + " € TTC"
+            if pct > 0:
+                content += f", soit -{pct} %"
     if avail:
         content += f" — Disponibilité : {avail}"
     content += f"\nLien : {url}"
@@ -83,6 +101,7 @@ def build_row(r):
     meta = {"source_type": "product", "source": "feed", "title": title, "url": url,
             "brand": brand or None, "sku": (r.get("sku") or "").strip() or None,
             "ean": (r.get("ean") or "").strip() or None, "price": price, "currency": "EUR",
+            **({"list_price": parse_list_price(r), "on_promo": True} if parse_list_price(r) is not None else {}),
             "availability": avail, "category": (r.get("product type") or "").strip() or None,
             "image": (r.get("image link") or "").strip() or None,
             "item_group_id": (r.get("item_group_id") or "").strip() or None,
