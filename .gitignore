@@ -23,3 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 supabase/.temp/
+
+# Cache Python (regenere automatiquement, ne doit pas etre versionne)
+__pycache__/
+*.pyc
